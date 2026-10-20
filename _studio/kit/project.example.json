@@ -1,0 +1,37 @@
+{
+  "authority": {
+    "commercialCommitment": "operator",
+    "destructiveAction": "operator",
+    "externalSend": "operator",
+    "production": "operator"
+  },
+  "commands": {
+    "build": null,
+    "e2e": null,
+    "install": null,
+    "lint": null,
+    "test": null,
+    "typecheck": null
+  },
+  "environments": {
+    "localUrl": null,
+    "previewUrl": null,
+    "productionUrl": null
+  },
+  "kitVersion": "1.2.0-rc.1",
+  "mode": "adopt",
+  "profile": {
+    "database": null,
+    "framework": null,
+    "hosting": null,
+    "packageManager": null,
+    "stage": null
+  },
+  "projectId": null,
+  "projectName": null,
+  "runtime": {
+    "primary": "claude-code",
+    "testedVersion": null
+  },
+  "schemaVersion": 1
+}

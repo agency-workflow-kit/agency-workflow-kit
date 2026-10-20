@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "studio://schemas/specialist-result.schema.json",
+  "title": "Studio Specialist Result",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["work_id", "executor", "status", "revision_context", "summary", "evidence"],
+  "properties": {
+    "work_id": {"type": "string", "minLength": 1},
+    "executor": {"enum": ["agency-researcher", "agency-coder", "agency-resolver", "agency-critic"]},
+    "status": {"enum": ["completed", "failed", "blocked"]},
+    "revision_context": {"type": "string", "minLength": 1},
+    "summary": {"type": "string", "minLength": 1},
+    "changed_paths": {"type": "array", "items": {"type": "string"}, "default": []},
+    "checks_run": {"type": "array", "items": {"type": "string"}, "default": []},
+    "evidence": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+    "risks": {"type": "array", "items": {"type": "string"}, "default": []},
+    "operator_gate_pending": {"type": "boolean", "default": false},
+    "decision_request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["question", "decision_class", "candidates", "hard_requirements", "fallback"],
+      "properties": {
+        "question": {"type": "string", "minLength": 1},
+        "decision_class": {"enum": ["candidate_selection", "ranking", "classification"]},
+        "candidates": {
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "summary"],
+            "properties": {
+              "id": {"type": "string", "minLength": 1},
+              "summary": {"type": "string", "minLength": 1}
+            }
+          }
+        },
+        "hard_requirements": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+        "fallback": {"type": "string", "minLength": 1}
+      }
+    }
+  },
+  "if": {"required": ["decision_request"]},
+  "then": {"properties": {"executor": {"const": "agency-researcher"}}}
+}

@@ -1,0 +1,306 @@
+{
+  "schema_version": "1.0",
+  "manifest_status": "candidate",
+  "kit": {
+    "name": "agency-workflow-kit",
+    "version": "1.2.0-rc.1",
+    "visibility": "public-beta",
+    "runtime_target": "claude-code",
+    "runtime_readiness": "implementation_freeze_ready"
+  },
+  "source_precedence": {
+    "architecture_before_cutover": "notion-frozen-candidate",
+    "executable_after_cutover": "exact-git-revision-and-release-manifest"
+  },
+  "agents": [
+    {
+      "name": "agency-director",
+      "role": "director",
+      "execution": "subagent",
+      "model": "claude-opus-5",
+      "effort": "high",
+      "delegates": [
+        "agency-researcher",
+        "agency-coder",
+        "agency-resolver",
+        "agency-critic"
+      ]
+    },
+    {
+      "name": "agency-researcher",
+      "role": "researcher",
+      "execution": "subagent",
+      "model": "claude-sonnet-5",
+      "effort": "medium",
+      "delegates": []
+    },
+    {
+      "name": "agency-coder",
+      "role": "coder",
+      "execution": "subagent",
+      "model": "claude-sonnet-5",
+      "effort": "high",
+      "delegates": []
+    },
+    {
+      "name": "agency-resolver",
+      "role": "resolver",
+      "execution": "subagent",
+      "model": "claude-sonnet-5",
+      "effort": "high",
+      "delegates": []
+    },
+    {
+      "name": "agency-critic",
+      "role": "critic",
+      "execution": "fresh-subagent",
+      "model": "claude-opus-5",
+      "effort": "high",
+      "delegates": []
+    }
+  ],
+  "human_authority": {
+    "name": "operator",
+    "generated_agent": false
+  },
+  "catalog": {
+    "core_generated_skills": [
+      "studio-gate",
+      "studio-verify",
+      "studio-run-engine",
+      "studio-grill"
+    ],
+    "core_generated_skill_count": 4,
+    "wordpress_etch_profile_generated_skills": [
+      "studio-etch-author",
+      "studio-wp-audit"
+    ],
+    "wordpress_etch_profile_generated_skill_count": 2,
+    "wordpress_etch_total_generated_skill_count": 6,
+    "external_dependencies_count_as_generated_skills": false
+  },
+  "schemas": [
+    "schemas/work-order.schema.json",
+    "schemas/specialist-result.schema.json",
+    "schemas/critic-verdict.schema.json",
+    "schemas/project-profile.schema.json",
+    "schemas/project.schema.json"
+  ],
+  "adapter": "adapters/claude-code",
+  "fixtures": "fixtures",
+  "invariants": {
+    "agent_count": 5,
+    "explicit_models_required": true,
+    "model_inherit_allowed": false,
+    "recursive_delegation_allowed": false,
+    "operator_agent_allowed": false,
+    "legacy_agent_generation_allowed": false,
+    "automatic_skill_promotion_allowed": false,
+    "skillopt_sleep_allowed": false
+  },
+  "release_gate": {
+    "status": "blocked",
+    "public_stable": "blocked",
+    "tag_or_release_authorized": false,
+    "internal_release": {
+      "status": "blocked",
+      "authorized": true,
+      "contract": "controlled-internal-then-canary-then-staged-rollout",
+      "first_canary": "first-managed-project",
+      "rollout_sequence": [
+        "controlled-internal-cut",
+        "first-managed-project-canary",
+        "staged-managed-project-rollout",
+        "continued-dogfood",
+        "public-stable-later"
+      ],
+      "critic_gates": "unchanged",
+      "operator_gates": "unchanged",
+      "dogfood": {
+        "status": "started_not_complete",
+        "task_matrix": "incomplete",
+        "circular_prerequisite_for_internal_cut": false,
+        "post_canary_obligation": "continued-dogfood",
+        "baseline": {
+          "kit_version": "1.2.0-rc.1",
+          "status": "not_started"
+        }
+      },
+      "blocks_internal_when": [
+        "A",
+        "B",
+        "D_at_cut"
+      ],
+      "blocks_public_stable_when": [
+        "C",
+        "A",
+        "B",
+        "D_at_cut"
+      ],
+      "notes": [
+        "internal_release.authorized is true only for the authorization_binding on this cut.",
+        "release_gate.status remains blocked; public_stable remains blocked; tag_or_release_authorized remains false.",
+        "Dogfood remains started_not_complete. runtime-discovery-evidence remains class C and open. Deferred gaps remain deferred. model-routing-evidence is not reopened. A/B scoped acceptance is unchanged in meaning.",
+        "This does not authorize a tag, GitHub Release, or public/stable.",
+        "1.2.0-rc.1 is a public-beta prerelease candidate (visibility public-beta). Its publication needs a separate Operator authorization and the D6 credential-rotation confirmation; certification does not publish."
+      ],
+      "authorization_binding": {
+        "kit_version": "1.2.0-rc.1",
+        "parent_commit": "b8e3934779534a7511301cb176f80ec1c12fea61",
+        "provenance_record": "docs/release/certification/cut-1.2.0-rc.1-provenance.json",
+        "exact_release_hashes_record": "docs/release/certification/cut-1.2.0-rc.1-hashes.json",
+        "install_identity_record": "docs/release/certification/cut-1.2.0-rc.1-install-identity.json",
+        "tree_oid_policy": "not_embedded",
+        "identity_blobs_field": "docs/release/certification/cut-1.2.0-rc.1-hashes.json#identity_blobs",
+        "note": "authorized true only for kit_version + parent_commit + identity_blobs + tree_oid_policy not_embedded + provenance/hash/install-identity records. Land is valid only when HEAD^{tree} equals a fresh write-tree of this exact index; that OID is not stored inside the tree. release_gate.status and public_stable remain blocked; tag_or_release_authorized remains false."
+      }
+    },
+    "requires": [
+      "renderer-implementation",
+      "renderer-golden-fixtures",
+      "model-routing-evidence",
+      "permission-denial-fixtures",
+      "installer-transaction-fixtures",
+      "runtime-discovery-evidence",
+      "dependency-pins-and-provenance",
+      "exact-release-hashes"
+    ],
+    "require_applicability": {
+      "permission-denial-fixtures": {
+        "class": "A",
+        "blocks": "internal_and_public",
+        "reason": "Structural role/tool denial and Operator/Critic acceptance paths are safety rails for any internal consumer.",
+        "evidence": [
+          "_studio/kit/fixtures/permission-denial/README.md",
+          "tests/test_permission_denial_fixtures.py"
+        ],
+        "deferred_not_built": [
+          "resolver-governance-model-permission-mutation",
+          "coder-production-dns-structural-denial"
+        ],
+        "scoped_acceptance": {
+          "status": "accepted_for_supported_surface",
+          "critic_work_id": "critic-internal-ab-scope",
+          "milestone_sha": "6ab1f2205c32868b33d764a628f667fadf8f5c8b",
+          "surface": "seven locked fixture ids: researcher-mutation-denied, critic-implementation-mutation-denied, coder-operator-authorization, specialist-agent-spawn-denied, resolver-correction-cycle-bound, blocked-inconclusive-never-accepts, critic-evidence-stale-on-revision-change"
+        }
+      },
+      "installer-transaction-fixtures": {
+        "class": "A",
+        "blocks": "internal_and_public",
+        "reason": "Collision refusal, preview fail-closed, uninstall preserve-modified, and committed-migration recovery protect managed projects during internal rollout.",
+        "evidence": [
+          "_studio/kit/fixtures/installer-transactions/README.md",
+          "tests/test_installer_transaction_fixtures.py",
+          "docs/release/checklist.md",
+          "docs/release/certification/dogfood/README.md"
+        ],
+        "deferred_not_built": [
+          "upgrade-three-way-merge",
+          "profile-deactivation"
+        ],
+        "not_closed_by": "lifecycle dogfood pilots",
+        "scoped_acceptance": {
+          "status": "accepted_for_supported_surface",
+          "critic_work_id": "critic-internal-ab-scope",
+          "milestone_sha": "6ab1f2205c32868b33d764a628f667fadf8f5c8b",
+          "surface": "four scenario ids: collision-refusal, uninstall-preserves-modified, preview-fail-closed, committed-migration-recovery"
+        }
+      },
+      "renderer-implementation": {
+        "class": "B",
+        "blocks": "internal_and_public",
+        "reason": "Internal install and activation depend on the landed tested-catalog renderer; unfinished hostile matrix rows stay deferred, not invented.",
+        "evidence": [
+          "_studio/kit/adapters/claude-code/README.md",
+          "_studio/kit/fixtures/renderer-goldens/README.md",
+          "tests/test_claude_renderer.py"
+        ],
+        "deferred_not_built": [
+          "legacy-section15-hostile",
+          "effective-model-override",
+          "project-user-agent-collision",
+          "project-user-skill-collision",
+          "stale-runtime-path"
+        ],
+        "scoped_acceptance": {
+          "status": "accepted_for_supported_surface",
+          "critic_work_id": "critic-internal-ab-scope",
+          "milestone_sha": "6ab1f2205c32868b33d764a628f667fadf8f5c8b",
+          "surface": "tested catalog 5 agents + 4 core skills, etch +2, hard-fail rows that tests lock"
+        }
+      },
+      "renderer-golden-fixtures": {
+        "class": "B",
+        "blocks": "internal_and_public",
+        "reason": "Byte-exact goldens for implemented catalog rows lock renderer correctness for internal cuts.",
+        "evidence": [
+          "_studio/kit/fixtures/renderer-goldens/README.md",
+          "tests/test_renderer_goldens.py"
+        ],
+        "deferred_not_built": [
+          "unimplemented renderer-golden matrix rows listed in renderer-goldens README"
+        ],
+        "scoped_acceptance": {
+          "status": "accepted_for_supported_surface",
+          "critic_work_id": "critic-internal-ab-scope",
+          "milestone_sha": "6ab1f2205c32868b33d764a628f667fadf8f5c8b",
+          "surface": "core-clean, wordpress-etch-clean, repeat-render, seven failure rows: catalog-drift, legacy-agent-name, missing-model, model-inherit, operator-agent, recursive-agent-tool, second-etch-authority"
+        }
+      },
+      "runtime-discovery-evidence": {
+        "class": "C",
+        "blocks": "public_stable_only",
+        "reason": "Broader discovery/MCP/doctor package is hardened public/stable runtime certification; Wave RC already non-claims discovery, and model-routing is separately satisfied.",
+        "evidence": [
+          "_studio/kit/adapters/claude-code/README.md",
+          "docs/release/runtime-boundary.md",
+          "docs/release/certification/runtime-live-20260923.md",
+          "_studio/kit/fixtures/README.md"
+        ]
+      },
+      "dependency-pins-and-provenance": {
+        "class": "D",
+        "blocks": "at_cut",
+        "reason": "Pinned dependency and provenance records are produced at cut time for both internal and later public cuts.",
+        "evidence": [
+          "_studio/kit/adapters/claude-code/README.md",
+          "docs/release/checklist.md",
+          "docs/release/certification/cut-1.2.0-rc.1-provenance.json",
+          "docs/release/certification/runtime-live-20260923.md",
+          "docs/release/certification/runtime-live-20260923.json"
+        ],
+        "internal_cut_still_produces": true
+      },
+      "exact-release-hashes": {
+        "class": "D",
+        "blocks": "at_cut",
+        "reason": "Exact release hashes are generated at cut time; an internal cut still produces them.",
+        "evidence": [
+          "_studio/kit/manifest.json",
+          "docs/release/checklist.md",
+          "docs/release/certification/cut-1.2.0-rc.1-hashes.json"
+        ],
+        "internal_cut_still_produces": true
+      },
+      "model-routing-evidence": {
+        "class": "E",
+        "blocks": "none",
+        "status": "satisfied",
+        "reason": "Satisfied at milestone 6ab1f2205c32868b33d764a628f667fadf8f5c8b under model_routing_evidence_accepted; do not reopen.",
+        "evidence": [
+          "docs/release/certification/runtime-live-20260923.md",
+          "docs/release/certification/runtime-live-20260923.json"
+        ],
+        "note": "EVIDENCE_COMPLETE for this record only; does not unblock release_gate.status or public/stable."
+      }
+    },
+    "applicability_legend": {
+      "A": "REQUIRED_FOR_INTERNAL_SAFETY",
+      "B": "REQUIRED_FOR_INTERNAL_CORRECTNESS",
+      "C": "REQUIRED_ONLY_FOR_PUBLIC_STABLE",
+      "D": "CUT_TIME_ONLY",
+      "E": "NOT_REQUIRED_OR_SUPERSEDED"
+    }
+  }
+}

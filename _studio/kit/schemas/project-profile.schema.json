@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "studio://schemas/project-profile.schema.json",
+  "title": "Studio Project Profile",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["project_id", "runtime", "profiles", "bindings"],
+  "properties": {
+    "project_id": {"type": "string", "minLength": 1},
+    "runtime": {"const": "claude-code"},
+    "profiles": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"enum": ["core", "wordpress-etch"]},
+      "contains": {"const": "core"}
+    },
+    "bindings": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "linear_project_id": {"type": ["string", "null"]},
+        "wordpress_site": {"type": ["string", "null"]}
+      }
+    },
+    "project_agent_overrides_allowed": {"type": "boolean", "default": false},
+    "notes": {"type": "array", "items": {"type": "string"}, "default": []}
+  }
+}

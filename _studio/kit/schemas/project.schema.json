@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "studio://schemas/project.schema.json",
+  "title": "Studio Project Manifest (_studio/project.json)",
+  "description": "v1.2 reconciled field set (#114). Renderer profile, execution limits, readiness, integrations and Linear bindings are owned elsewhere and are not fields here. Enforced by studio_project_manifest.validate_project_manifest.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "kitVersion", "projectId", "projectName", "mode", "profile", "runtime", "commands", "environments", "authority"],
+  "$defs": {
+    "nullableText": {"type": ["string", "null"], "minLength": 1},
+    "command": {
+      "oneOf": [
+        {"type": "null"},
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["executable", "args"],
+          "properties": {
+            "executable": {"type": "string", "minLength": 1, "pattern": "^[^\\s;&|$`<>()*?!~{}\\[\\]'\"\\\\#]+$"},
+            "args": {"type": "array", "items": {"type": "string"}}
+          }
+        }
+      ]
+    },
+    "url": {"type": ["string", "null"], "pattern": "^https?://"},
+    "operator": {"const": "operator"}
+  },
+  "properties": {
+    "schemaVersion": {"const": 1},
+    "kitVersion": {"type": "string", "minLength": 1},
+    "projectId": {"type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"},
+    "projectName": {"$ref": "#/$defs/nullableText"},
+    "mode": {"enum": ["new", "adopt"]},
+    "profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["framework", "packageManager", "hosting", "database", "stage"],
+      "properties": {
+        "framework": {"$ref": "#/$defs/nullableText"},
+        "packageManager": {"$ref": "#/$defs/nullableText"},
+        "hosting": {"$ref": "#/$defs/nullableText"},
+        "database": {"$ref": "#/$defs/nullableText"},
+        "stage": {"$ref": "#/$defs/nullableText"}
+      }
+    },
+    "runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["primary", "testedVersion"],
+      "properties": {
+        "primary": {"const": "claude-code"},
+        "testedVersion": {"$ref": "#/$defs/nullableText"}
+      }
+    },
+    "commands": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["install", "lint", "typecheck", "test", "build", "e2e"],
+      "properties": {
+        "install": {"$ref": "#/$defs/command"},
+        "lint": {"$ref": "#/$defs/command"},
+        "typecheck": {"$ref": "#/$defs/command"},
+        "test": {"$ref": "#/$defs/command"},
+        "build": {"$ref": "#/$defs/command"},
+        "e2e": {"$ref": "#/$defs/command"}
+      }
+    },
+    "environments": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["localUrl", "previewUrl", "productionUrl"],
+      "properties": {
+        "localUrl": {"$ref": "#/$defs/url"},
+        "previewUrl": {"$ref": "#/$defs/url"},
+        "productionUrl": {"$ref": "#/$defs/url"}
+      }
+    },
+    "authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["production", "externalSend", "commercialCommitment", "destructiveAction"],
+      "properties": {
+        "production": {"$ref": "#/$defs/operator"},
+        "externalSend": {"$ref": "#/$defs/operator"},
+        "commercialCommitment": {"$ref": "#/$defs/operator"},
+        "destructiveAction": {"$ref": "#/$defs/operator"}
+      }
+    }
+  }
+}
