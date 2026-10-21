@@ -6,6 +6,10 @@
 
 ![Agency Workflow Kit. Claude Code does the work. You decide what ships. Diagram: the Operator gives a task to the Front Door, your Claude Code session, which routes it DIRECT, DELEGATE or DIRECTOR. An independent Critic checks the exact revision, and the Operator decides.](media/awk-hero.png)
 
+https://github.com/user-attachments/assets/10b14da1-7949-4c97-be58-e888ecc27ca6
+
+*A 75-second silent tour. Every value in it is copied from the real commands, sessions, hook tests and installed agent files behind this README.*
+
 Agency Workflow Kit adds a governed way of working to [Claude Code](https://docs.claude.com/en/docs/claude-code/overview). Your session routes each task, bounded specialists do the work, an independent Critic checks the exact revision, and nothing merges, deploys or ships until you say so.
 
 **[Start with the Quick Start →](QUICKSTART.md)**
