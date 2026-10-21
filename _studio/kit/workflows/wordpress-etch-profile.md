@@ -18,7 +18,7 @@ This profile is internal and Etch-only. It adds exactly two Studio-owned generat
 5. Respect current API persistence semantics and feature-detect capabilities/methods rather than assuming API version behavior.
 6. Produce deterministic evidence and hand the exact work/revision/runtime context to Critic.
 
-**Blocked condition:** if official Connector/Public API authoring is required but unavailable, live Etch mutation is BLOCKED. Novamira or another MCP must not silently become a substitute authoring authority.
+**Blocked condition:** if official Connector/Public API authoring is required but unavailable, live Etch mutation is BLOCKED. No other MCP may silently become a substitute authoring authority.
 
 **External references:** optional third-party validators/references remain disabled by default and require provenance/license review. Credentials and license keys are never stored in the kit.
 
