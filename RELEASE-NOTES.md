@@ -1,8 +1,16 @@
 # Release notes
 
-## 1.2.0-rc.1: public beta
+## 1.2.0-rc.2: public beta
 
-**Pre-release. Not stable.** This is the first public release of Agency Workflow Kit. It is the same runtime that was used in controlled internal releases and real-project dogfood, packaged for public use. It has no runtime behavior changes from the last internal release.
+**Pre-release. Not stable.** This is the second public beta of Agency Workflow Kit. It replaces the previous public beta prerelease and carries one runtime fix.
+
+### Fixed
+
+- **Front Door router lookup.** Before delegating, the session runs the installed Front Door router. The entry rule and the `studio-run-engine` skill located it through `$CLAUDE_PROJECT_DIR`, which Claude Code exports to hooks but not reliably to Bash tool calls. When the variable was absent, the command resolved to `/.claude/runtime/studio_front_door.py` and failed. The command now starts at `$CLAUDE_PROJECT_DIR` when it is set, otherwise at the current directory, and walks up to the nearest activated project. It runs that project's installed router, so it works from the project root, a nested directory or a linked worktree. With no activated project it prints `studio_front_door.py not found` and exits non-zero without routing anything.
+
+### Updating from the previous public beta
+
+Follow [Quick Start step 8](QUICKSTART.md#8-update) from a linked worktree of the new tag, user-global scope first, then each project. The update replaces the managed Front Door rule in each project and the managed `studio-run-engine` skill in the user-global catalog. Files you own are not changed. No re-activation is needed; `--check-only` should report `ACTIVATED`.
 
 ### Included
 

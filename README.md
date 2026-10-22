@@ -1,8 +1,8 @@
 # Agency Workflow Kit
 
-![Public beta 1.2.0-rc.1](https://img.shields.io/badge/public_beta-1.2.0--rc.1-FF5B1F) ![License Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-2A2D33)
+![Public beta 1.2.0-rc.2](https://img.shields.io/badge/public_beta-1.2.0--rc.2-FF5B1F) ![License Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-2A2D33)
 
-> **Public beta: `1.2.0-rc.1`. Not stable.** Interfaces, files and commands may change before `1.2.0`. Read [Known limitations](RELEASE-NOTES.md#known-limitations) before you use it on a project that matters.
+> **Public beta: `1.2.0-rc.2`. Not stable.** Interfaces, files and commands may change before `1.2.0`. Read [Known limitations](RELEASE-NOTES.md#known-limitations) before you use it on a project that matters.
 
 ![Agency Workflow Kit. Claude Code does the work. You decide what ships. Diagram: the Operator gives a task to the Front Door, your Claude Code session, which routes it DIRECT, DELEGATE or DIRECTOR. An independent Critic checks the exact revision, and the Operator decides.](media/awk-hero.png)
 
@@ -29,7 +29,7 @@ The first four cards come from real commands and sessions against copies of a sm
 
 **Install once per project.** Preflight is read-only. Activation writes 22 project files and journals them. `--check-only` exits 0 only when the state is `ACTIVATED`.
 
-![Card: the preflight, activate and check-only commands, with results: preflight status clear, 22 project files written to a journal, state ACTIVATED for catalog 1.2.0-rc.1.](media/awk-activate.png)
+![Card: the preflight, activate and check-only commands, with results: preflight status clear, 22 project files written to a journal, state ACTIVATED for the installed catalog version.](media/awk-activate.png)
 
 **A vague ask gets questions, not edits.** Given the prompt "Make the slugify tool better.", the session tested the tool, listed real defects and asked how far to go. It changed no files. For materially ambiguous requests the Kit also has a clarification on-ramp that routes to `studio-grill` and does no work.
 

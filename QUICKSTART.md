@@ -1,6 +1,6 @@
 # Quick Start
 
-This guide is for Agency Workflow Kit `1.2.0-rc.1`, a public beta. In the commands below, `<project>` is the absolute path of the project you want to activate.
+This guide is for Agency Workflow Kit `1.2.0-rc.2`, a public beta. In the commands below, `<project>` is the absolute path of the project you want to activate.
 
 ## 1. Requirements
 
@@ -18,8 +18,8 @@ Clone the repository, then add a linked worktree at the release tag. Run every K
 ```bash
 git clone https://github.com/agency-workflow-kit/agency-workflow-kit.git
 cd agency-workflow-kit
-git worktree add ../awk-1.2.0-rc.1 v1.2.0-rc.1
-cd ../awk-1.2.0-rc.1
+git worktree add ../awk-1.2.0-rc.2 v1.2.0-rc.2
+cd ../awk-1.2.0-rc.2
 ```
 
 ## 3. What the Kit writes

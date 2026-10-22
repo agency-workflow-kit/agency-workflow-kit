@@ -18,7 +18,9 @@ A clear task that the current session completes itself, with no delegation, is `
 
 Before any part of a task is delegated to another agent, the session writes a bounded decomposition to a file and runs:
 
-    python3 "$CLAUDE_PROJECT_DIR/.claude/runtime/studio_front_door.py" --decomposition <file>
+    d="${CLAUDE_PROJECT_DIR:-$PWD}"; until [ -f "$d/.claude/rules/agency-workflow-kit.md" ] || [ "$d" = "$(dirname "$d")" ]; do d="$(dirname "$d")"; done; [ -f "$d/.claude/rules/agency-workflow-kit.md" ] && [ -f "$d/.claude/runtime/studio_front_door.py" ] || { echo "studio_front_door.py not found: no activated project at or above ${CLAUDE_PROJECT_DIR:-$PWD}" >&2; false; } && python3 "$d/.claude/runtime/studio_front_door.py" --decomposition <file>
+
+The command starts at `$CLAUDE_PROJECT_DIR` when it is set, otherwise at the current directory, finds the nearest activated project at or above it (the directory holding this file as `.claude/rules/agency-workflow-kit.md`) and runs that project's installed Front Door CLI, so it resolves from the project root, a nested directory or a linked worktree under the project. With no activated project, or one without its installed CLI, it prints `studio_front_door.py not found` and exits non-zero without routing anything.
 
 The decomposition is a JSON array of work orders. Each work order has `work_id`, `objective`, `scope`, `non_goals`, `acceptance_criteria`, `executor`, `owned_paths`, `permitted_side_effects` and `evidence_required`, plus optional `dependencies` and `operator_gate_required`. The result's `path` and `delegations` are the routing decision; the `studio-run-engine` skill describes how each route is carried out.
 
