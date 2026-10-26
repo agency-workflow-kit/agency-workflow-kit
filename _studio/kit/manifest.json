@@ -3,8 +3,8 @@
   "manifest_status": "candidate",
   "kit": {
     "name": "agency-workflow-kit",
-    "version": "1.2.0-rc.2",
-    "visibility": "public-beta",
+    "version": "1.2.0",
+    "visibility": "public",
     "runtime_target": "claude-code",
     "runtime_readiness": "implementation_freeze_ready"
   },
@@ -117,13 +117,15 @@
       "critic_gates": "unchanged",
       "operator_gates": "unchanged",
       "dogfood": {
-        "status": "started_not_complete",
-        "task_matrix": "incomplete",
+        "status": "complete",
+        "task_matrix": "complete",
         "circular_prerequisite_for_internal_cut": false,
         "post_canary_obligation": "continued-dogfood",
+        "completion_criterion": "all 12 task-matrix rows PASS on the 1.2.0 baseline with a fresh independent Critic, and 4/4 fleet projects ACTIVATED with KEEP on that baseline (Operator, 2026-10-25); dogfood after stable continues as practice, not as a release gate",
+        "record": "docs/release/certification/dogfood/stable-1.2.0-task-matrix/README.md",
         "baseline": {
           "kit_version": "1.2.0-rc.2",
-          "status": "not_started"
+          "status": "complete"
         }
       },
       "blocks_internal_when": [
@@ -142,16 +144,17 @@
         "release_gate.status remains blocked; public_stable remains blocked; tag_or_release_authorized remains false.",
         "Dogfood remains started_not_complete. runtime-discovery-evidence remains class C and open. Deferred gaps remain deferred. model-routing-evidence is not reopened. A/B scoped acceptance is unchanged in meaning.",
         "This does not authorize a tag, GitHub Release, or public/stable.",
-        "1.2.0-rc.2 is a public-beta prerelease candidate (visibility public-beta). Its publication needs a separate Operator authorization; certification does not publish."
+        "2026-10-25: dogfood complete and runtime-discovery-evidence (class C) accepted for the supported surface on the 1.2.0 baseline (docs/release/certification/dogfood/stable-1.2.0-task-matrix/README.md). The notes above record the internal cut binding as it was. release_gate.status and public_stable stay blocked; tag_or_release_authorized stays false.",
+        "1.2.0 is the stable release candidate (visibility public). Its publication (public main, tag v1.2.0, GitHub Release) needs a separate Operator authorization; certification does not publish."
       ],
       "authorization_binding": {
-        "kit_version": "1.2.0-rc.2",
-        "parent_commit": "7c76d0686513763bf8ba44b06adcef7739dacb2e",
-        "provenance_record": "docs/release/certification/cut-1.2.0-rc.2-provenance.json",
-        "exact_release_hashes_record": "docs/release/certification/cut-1.2.0-rc.2-hashes.json",
-        "install_identity_record": "docs/release/certification/cut-1.2.0-rc.2-install-identity.json",
+        "kit_version": "1.2.0",
+        "parent_commit": "005b18ca6f38d4d33d0c8679d023f0bc3c834353",
+        "provenance_record": "docs/release/certification/cut-1.2.0-provenance.json",
+        "exact_release_hashes_record": "docs/release/certification/cut-1.2.0-hashes.json",
+        "install_identity_record": "docs/release/certification/cut-1.2.0-install-identity.json",
         "tree_oid_policy": "not_embedded",
-        "identity_blobs_field": "docs/release/certification/cut-1.2.0-rc.2-hashes.json#identity_blobs",
+        "identity_blobs_field": "docs/release/certification/cut-1.2.0-hashes.json#identity_blobs",
         "note": "authorized true only for kit_version + parent_commit + identity_blobs + tree_oid_policy not_embedded + provenance/hash/install-identity records. Land is valid only when HEAD^{tree} equals a fresh write-tree of this exact index; that OID is not stored inside the tree. release_gate.status and public_stable remain blocked; tag_or_release_authorized remains false."
       }
     },
@@ -256,8 +259,15 @@
           "_studio/kit/adapters/claude-code/README.md",
           "docs/release/runtime-boundary.md",
           "docs/release/certification/runtime-live-20260923.md",
-          "_studio/kit/fixtures/README.md"
-        ]
+          "_studio/kit/fixtures/README.md",
+          "docs/release/certification/dogfood/stable-1.2.0-task-matrix/README.md"
+        ],
+        "scoped_acceptance": {
+          "status": "accepted_for_supported_surface",
+          "critic_work_id": "critic-stable-1.2.0-task-matrix-classc",
+          "milestone_sha": "6241654301eb4e5296fe2d8382ee1c3fa9d31fa1",
+          "surface": "Claude Code only: install/activate/inspect/update/recovery lifecycle, activated-project Front Door, DIRECT/DELEGATE/DIRECTOR routing, real specialist delegation; docs/release/runtime-boundary.md non-claims unchanged"
+        }
       },
       "dependency-pins-and-provenance": {
         "class": "D",
@@ -266,7 +276,7 @@
         "evidence": [
           "_studio/kit/adapters/claude-code/README.md",
           "docs/release/checklist.md",
-          "docs/release/certification/cut-1.2.0-rc.2-provenance.json",
+          "docs/release/certification/cut-1.2.0-provenance.json",
           "docs/release/certification/runtime-live-20260923.md",
           "docs/release/certification/runtime-live-20260923.json"
         ],
@@ -279,7 +289,7 @@
         "evidence": [
           "_studio/kit/manifest.json",
           "docs/release/checklist.md",
-          "docs/release/certification/cut-1.2.0-rc.2-hashes.json"
+          "docs/release/certification/cut-1.2.0-hashes.json"
         ],
         "internal_cut_still_produces": true
       },

@@ -4,7 +4,7 @@
 
 | Version | Supported |
 |---|---|
-| `1.2.0-rc.2` (public beta) | Yes |
+| `1.2.0` | Yes |
 | Anything older | No |
 
 ## Reporting a vulnerability

@@ -1,8 +1,8 @@
 # Agency Workflow Kit
 
-![Public beta 1.2.0-rc.2](https://img.shields.io/badge/public_beta-1.2.0--rc.2-FF5B1F) ![License Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-2A2D33)
+![Release 1.2.0](https://img.shields.io/badge/release-1.2.0-FF5B1F) ![License Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-2A2D33)
 
-> **Public beta: `1.2.0-rc.2`. Not stable.** Interfaces, files and commands may change before `1.2.0`. Read [Known limitations](RELEASE-NOTES.md#known-limitations) before you use it on a project that matters.
+> **Stable release: `1.2.0`.** Read [Known limitations](RELEASE-NOTES.md#known-limitations) before you use it on a project that matters.
 
 ![Agency Workflow Kit. Claude Code does the work. You decide what ships. Diagram: the Operator gives a task to the Front Door, your Claude Code session, which routes it DIRECT, DELEGATE or DIRECTOR. An independent Critic checks the exact revision, and the Operator decides.](media/awk-hero.png)
 
@@ -25,7 +25,7 @@ Agency Workflow Kit adds a governed way of working to [Claude Code](https://docs
 
 ## See it in action
 
-The first four cards come from real commands and sessions against copies of a small example project in a disposable setup. The guardrails card feeds test calls to the installed hook. The label at the top right of each card names its source, and for sessions the Claude Code version. On session cards, the `operator` row is the exact prompt given to the session. Every other value is copied from the session's output, except the `on-ramp` row on the vague-ask card, which comes from a separate run of the on-ramp CLI in the same folder. The sessions ran headless with permission prompts turned off, on Claude Code `2.1.305` and `2.1.306`. Those are newer patch versions than the formally qualified `2.1.301`.
+The first four cards come from real commands and sessions against copies of a small example project in a disposable setup. The guardrails card feeds test calls to the installed hook. The label at the top right of each card names its source, and for sessions the Claude Code version. On session cards, the `operator` row is the exact prompt given to the session. Every other value is copied from the session's output, except the `on-ramp` row on the vague-ask card, which comes from a separate run of the on-ramp CLI in the same folder. The sessions ran headless with permission prompts turned off, on Claude Code `2.1.305` and `2.1.306`. Those are newer patch versions than the formally qualified `2.1.301`. The cards were captured on the first public beta, and the version in each card's header is that capture's, not the current release.
 
 **Install once per project.** Preflight is read-only. Activation writes 22 project files and journals them. `--check-only` exits 0 only when the state is `ACTIVATED`.
 
@@ -69,13 +69,13 @@ Installed to `~/.claude/agents`. Each agent's model and effort are pinned in its
 
 - macOS or Linux, with `git`.
 - Python 3.12 or newer. The Kit uses only the standard library.
-- Claude Code CLI. Version `2.1.301` is formally qualified. `2.1.302` has real-project dogfood evidence. Newer patch versions are not formally qualified yet.
+- Claude Code CLI. Version `2.1.301` is formally qualified. `2.1.302` has real-project dogfood evidence. `2.1.308`, `2.1.309` and `2.1.310` were observed in release certification and real-project dogfood, without formal qualification. Other newer patch versions are not formally qualified yet.
 
 **Start Claude Code inside the activated project, or inside the activated worktree.** A session started in another checkout does not load that project's Kit rule or hooks. The [Quick Start](QUICKSTART.md) covers installation, activation, update and removal.
 
 ## Known limitations
 
-This is a beta. See [Known limitations](RELEASE-NOTES.md#known-limitations) in the release notes.
+See [Known limitations](RELEASE-NOTES.md#known-limitations) in the release notes.
 
 ## Reporting
 

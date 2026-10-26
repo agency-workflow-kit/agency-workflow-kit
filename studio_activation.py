@@ -177,11 +177,16 @@ def is_activation_closure_journal(managed: set[str], rendered_dir: Path) -> bool
     assets, or a previous profile's still pending removal)."""
     core = _core_skill_names(rendered_dir)
     profile_like = {rel for rel in managed if _skill_name(rel) not in (None, *core)}
-    closure = set(activation_closure_rels())
-    # A project activated before the entry rule existed (#101) journals the
-    # closure without it; it is still an activation closure, so an update
-    # adds the rule instead of reintroducing project-scope agents.
-    return set(managed) - profile_like in (closure, closure - {ENTRY_RULE_RELATIVE.as_posix()})
+    rest = set(managed) - profile_like
+    # An older activation journals an older closure: before the entry rule
+    # (#101), before runtime/studio_authorization_gate.py (13d8dfa). It is
+    # still an activation closure, so an update adds the newer files instead
+    # of reintroducing project-scope agents. What separates any activation
+    # from an update-only install is the gate hook without the global
+    # catalog: no agents and no core skills.
+    return GATE_HOOK_RELATIVE.as_posix() in rest and not any(
+        rel.startswith(("agents/", "skills/")) for rel in rest
+    )
 
 
 def project_scope_only_rels(rendered_dir: Path) -> frozenset[str]:

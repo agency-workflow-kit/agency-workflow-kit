@@ -1,6 +1,52 @@
 # Release notes
 
+## 1.2.0: stable release
+
+This is the first stable release of Agency Workflow Kit. It follows the `1.2.0-rc.2` public beta and carries two runtime fixes.
+
+### Fixed
+
+- **No bytecode written into your project.** The Front Door router command in the entry rule and in the `studio-run-engine` skill now runs `python3 -B`. Routing no longer writes `__pycache__` files under `<project>/.claude/runtime/`. The Kit does not remove bytecode that an earlier release already wrote there.
+- **Updates keep the Kit agents global.** An update now recognizes a project that an older Kit release activated, even when that release activated a different set of files. It no longer copies the five Kit agents and the `studio-run-engine` skill into that project's `.claude`, where they would shadow the user-global catalog.
+
+### Updating from the public beta
+
+Follow [Quick Start step 8](QUICKSTART.md#8-update) from a linked worktree of the new tag, user-global scope first, then each project. The update replaces the managed Front Door rule in each project and the managed `studio-run-engine` skill in the user-global catalog. Files you own are not changed. No re-activation is needed; `--check-only` should report `ACTIVATED`.
+
+### Included
+
+- Five Kit agents: `agency-director`, `agency-researcher`, `agency-coder`, `agency-resolver`, `agency-critic`. Each pins its model and effort in its frontmatter.
+- Core skills, the Front Door entry rule, and the Front Door runtime that selects `DIRECT`, `DELEGATE` or `DIRECTOR`.
+- A worktree gate hook, plus worktree-isolation settings composed at project scope.
+- Commands to activate, inspect, preview, authorize, update, recover and uninstall, all journaled and fail-closed.
+
+### Supported runtime
+
+- Claude Code CLI `2.1.301`: formally qualified.
+- Claude Code CLI `2.1.302`: real-project dogfood evidence.
+- Claude Code CLI `2.1.308`, `2.1.309`, `2.1.310`: observed in release certification and real-project dogfood, not formally qualified.
+- Other newer patch versions: not formally qualified yet.
+- Python 3.12 or newer, with git, on macOS or Linux.
+
+### Known limitations
+
+- **Session location.** You must start Claude Code inside the activated project or worktree. A session started in another checkout does not load the Kit rule or hooks, and its native worktree isolation can root in the wrong clone.
+- **Verification coverage.** Real-project use was on macOS. Linux is covered only by the unit suite. Windows is not supported. The Claude Code Desktop app is not verified.
+- **No public test suite.** The test suite and certification evidence stay with the upstream development source. This repository contains the installable Kit only.
+- **Updates need git.** `authorize`/`update` run only from a clean linked git worktree of the Kit.
+- **No global uninstall command.** Per-project uninstall exists. Remove the user-global files by hand (see the Quick Start).
+- **Legacy identifiers.** Some preflight blocker identifiers and messages refer to a legacy internal agent contract by its internal name. They are kept unchanged in this release.
+- **Update ergonomics.** The user-global update needs an empty directory as its `--project` argument (see the Quick Start).
+- **Open follow-ups:** provider-neutral runtime and model routing; a revisit of the Critic model pin after future model releases; a kit-repo-only read-only command allowlist; capture of Critic startup failures in real use.
+- **Model access.** Pinned specialist models must be available to your Claude Code account.
+
+### Feedback
+
+Open an issue for bugs. Report security problems as described in [SECURITY.md](SECURITY.md).
+
 ## 1.2.0-rc.2: public beta
+
+Superseded by `1.2.0`. As published:
 
 **Pre-release. Not stable.** This is the second public beta of Agency Workflow Kit. It replaces the previous public beta prerelease and carries one runtime fix.
 
@@ -42,3 +88,11 @@ Follow [Quick Start step 8](QUICKSTART.md#8-update) from a linked worktree of th
 ### Feedback
 
 Open an issue for bugs. Report security problems as described in [SECURITY.md](SECURITY.md).
+
+## 1.2.0-rc.1: public beta
+
+Superseded by `1.2.0-rc.2`. As published:
+
+**Pre-release. Not stable.** This is the first public release of Agency Workflow Kit. It is the same runtime that was used in controlled internal releases and real-project dogfood, packaged for public use. It has no runtime behavior changes from the last internal release.
+
+Its Included, Supported runtime, Known limitations and Feedback sections were the same as those of `1.2.0-rc.2`.

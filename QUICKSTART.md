@@ -1,13 +1,13 @@
 # Quick Start
 
-This guide is for Agency Workflow Kit `1.2.0-rc.2`, a public beta. In the commands below, `<project>` is the absolute path of the project you want to activate.
+This guide is for Agency Workflow Kit `1.2.0`, the stable release. In the commands below, `<project>` is the absolute path of the project you want to activate.
 
 ## 1. Requirements
 
 | Item | Requirement |
 |---|---|
 | Platform | macOS: verified on real projects. Linux: the unit suite runs in CI. Windows: not supported. |
-| Claude Code CLI | `2.1.301`: formally qualified. `2.1.302`: real-project dogfood evidence. Newer patch versions: not formally qualified yet. Check yours with `claude --version`. |
+| Claude Code CLI | `2.1.301`: formally qualified. `2.1.302`: real-project dogfood evidence. `2.1.308`, `2.1.309`, `2.1.310`: observed in release certification and real-project dogfood, not formally qualified. Other newer patch versions: not formally qualified yet. Check yours with `claude --version`. |
 | Python | 3.12 or newer, run as a normal (non-root) user. Standard library only. |
 | git | Required. Updates refuse to run from anything but a linked git worktree of the Kit, so a source zip cannot be updated. |
 
@@ -18,8 +18,8 @@ Clone the repository, then add a linked worktree at the release tag. Run every K
 ```bash
 git clone https://github.com/agency-workflow-kit/agency-workflow-kit.git
 cd agency-workflow-kit
-git worktree add ../awk-1.2.0-rc.2 v1.2.0-rc.2
-cd ../awk-1.2.0-rc.2
+git worktree add ../awk-1.2.0 v1.2.0
+cd ../awk-1.2.0
 ```
 
 ## 3. What the Kit writes
