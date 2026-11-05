@@ -1,6 +1,6 @@
 # Quick Start
 
-This guide is for Agency Workflow Kit `1.2.0`, the stable release. In the commands below, `<project>` is the absolute path of the project you want to activate.
+This guide is for Agency Workflow Kit `1.3.0-rc.1`, a public beta. In the commands below, `<project>` is the absolute path of the project you want to activate.
 
 ## 1. Requirements
 
@@ -13,40 +13,60 @@ This guide is for Agency Workflow Kit `1.2.0`, the stable release. In the comman
 
 ## 2. Install the Kit source
 
-Clone the repository, then add a linked worktree at the release tag. Run every Kit command from that worktree.
+**As a Claude Code plugin (simplest).** Install once per machine, pinned to the release tag:
+
+```bash
+claude plugin install agency-workflow-kit --marketplace agency-workflow-kit/agency-workflow-kit#v1.3.0-rc.1
+```
+
+Then, inside each project, start Claude Code and run `/agency-workflow-kit:activate`. It runs the preflight, activation and `--check-only` from step 4 for you, from the plugin's copy of the Kit, and stops at the first blocker. Start a new session afterwards so the Front Door rule and hooks load. To move to a newer release, replace the pin (a pinned marketplace cannot be re-pinned in place), then run `/agency-workflow-kit:activate` again in each project. Activation updates the shared `~/.claude` install in place. This route does not use the preview, authorize and update records of step 8, which need a clone:
+
+```bash
+claude plugin marketplace remove agency-workflow-kit && claude plugin install agency-workflow-kit --marketplace agency-workflow-kit/agency-workflow-kit#<new-tag>
+```
+
+To remove the Kit from a project, ask for it in that project: `/agency-workflow-kit:activate remove the Kit from this project` runs the step 9 uninstall. Then, once no project uses it, `claude plugin uninstall agency-workflow-kit@agency-workflow-kit` removes the plugin. Uninstalling the plugin does not remove the files activation wrote.
+
+**From a clone.** Clone the repository, then add a linked worktree at the release tag. Run every Kit command from that worktree.
 
 ```bash
 git clone https://github.com/agency-workflow-kit/agency-workflow-kit.git
 cd agency-workflow-kit
-git worktree add ../awk-1.2.0 v1.2.0
-cd ../awk-1.2.0
+git worktree add ../awk-1.3.0-rc.1 v1.3.0-rc.1
+cd ../awk-1.3.0-rc.1
 ```
 
 ## 3. What the Kit writes
 
-- **User-global, in `~/.claude`:** the five Kit agents (`agency-director`, `agency-researcher`, `agency-coder`, `agency-resolver`, `agency-critic`), the core Kit skills, and their runtime. Every project on the machine shares these.
+- **User-global, in `~/.claude`:** the five Kit agents (`agency-director`, `agency-researcher`, `agency-coder`, `agency-resolver`, `agency-critic`), the core Kit skills, their runtime, and the worktree gate hook `hooks/studio_worktree_gate.py`. Every project on the machine shares these.
 - **Per project, in `<project>/.claude`:** the worktree gate hook `hooks/studio_worktree_gate.py`, the Front Door entry rule `rules/agency-workflow-kit.md`, the Front Door runtime under `runtime/`, and the worktree-isolation keys composed into `settings.json`. The Kit journals every file it installs.
 - **Per project, in `<project>/_studio/project.json`:** the project manifest.
 - Activation never writes your root `CLAUDE.md`. It does not install agents or core skills at project scope either.
 
 ## 4. Activate your first project
 
+Set your project's absolute path once, so the commands below paste as they are:
+
+```bash
+PROJECT=/absolute/path/to/your/project
+```
+
 Check first. This step is read-only and exits non-zero on a blocker:
 
 ```bash
-python3 studio_activation.py --kit _studio/kit --project <project> --preflight
+python3 studio_activation.py --kit _studio/kit --project "$PROJECT" --preflight
 ```
 
-Activate:
+Activate. It prints `ACTIVATED` and the next command on success:
 
 ```bash
-python3 studio_activation.py --kit _studio/kit --project <project>
+python3 studio_activation.py --kit _studio/kit --project "$PROJECT"
 ```
 
 Verify. This exits 0 only when the state is `ACTIVATED`:
 
 ```bash
-python3 studio_activation.py --kit _studio/kit --project <project> --check-only
+python3 studio_activation.py --kit _studio/kit --project "$PROJECT" --check-only
 ```
 
 If any other state comes back (`NOT_ACTIVATED`, `STALE_GLOBAL_INSTALL`, `PROJECT_CONFIGURATION_MISSING`), the JSON output says what is missing. Fix that and run activation again. `--global-root` defaults to `~/.claude`.
@@ -56,7 +76,7 @@ If any other state comes back (`NOT_ACTIVATED`, `STALE_GLOBAL_INSTALL`, `PROJECT
 **Important:** start the Claude Code session *inside* the activated project directory. If you work in a git worktree, the worktree itself must be activated, and the session must start inside it.
 
 ```bash
-cd <project>
+cd "$PROJECT"
 claude
 ```
 
@@ -106,7 +126,7 @@ python3 studio_activation.py --project <project> --uninstall
 
 This removes the Kit files that still match the journal and the gate hook entries the Kit composed. It keeps any file you modified and reports it. It keeps `_studio/project.json`, the rest of `settings.json` and `.studio-backups/`. A rerun is a no-op.
 
-Uninstall never touches the user-global catalog, because other projects share it. Once no project uses the Kit, remove the global files by hand: `~/.claude/agents/agency-*.md`, the Kit skills under `~/.claude/skills/studio-*`, and the Kit runtime under `~/.claude/runtime/`. Check each path before you delete it.
+Uninstall never touches the user-global catalog, because other projects share it. Once no project uses the Kit, remove the global files by hand: `~/.claude/agents/agency-*.md`, the Kit skills under `~/.claude/skills/studio-*`, the Kit runtime under `~/.claude/runtime/`, and the worktree gate hook `~/.claude/hooks/studio_worktree_gate.py`. Then remove the Kit's own records there: the install journal `~/.claude/.studio-install.json` and, if present, `~/.claude/.studio-backups/`, `~/.claude/.studio-update-authorization/` and `~/.claude/.studio-update-evidence/`. Check each path before you delete it.
 
 ## 10. Known limitations
 

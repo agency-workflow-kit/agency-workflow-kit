@@ -4,6 +4,7 @@
 
 | Version | Supported |
 |---|---|
+| `1.3.0-rc.1` (public beta) | Yes |
 | `1.2.0` | Yes |
 | Anything older | No |
 

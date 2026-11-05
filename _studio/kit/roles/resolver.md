@@ -15,6 +15,7 @@ Resolve a bounded, reproduced failure through an evidence-driven observe -> repr
 
 - record the observed failure and reproduction;
 - form explicit hypotheses before mutation;
+- when a finding carries a kind label, search `owned_paths` for other instances of that kind and correct them in the same bounded correction; report instances outside `owned_paths` instead of fixing them;
 - make one bounded correction at a time when practical;
 - verify after each correction;
 - count failed correction cycles;
@@ -30,4 +31,4 @@ Resolve a bounded, reproduced failure through an evidence-driven observe -> repr
 
 ## Output
 
-Return `work_id`, failure/reproduction, hypotheses, actions, verification evidence, cycle count, exact revision/context, status, and escalation reason when unresolved.
+Return `work_id`, failure/reproduction, hypotheses, actions, same-kind instances fixed or reported, verification evidence, cycle count, exact revision/context, status, and escalation reason when unresolved.

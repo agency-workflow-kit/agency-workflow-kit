@@ -1,0 +1,14 @@
+{
+  "name": "agency-workflow-kit",
+  "description": "Agency Workflow Kit for Claude Code: a governed way of working with routed tasks, bounded specialists and an independent Critic.",
+  "owner": {
+    "name": "Agency Workflow Kit"
+  },
+  "plugins": [
+    {
+      "name": "agency-workflow-kit",
+      "source": "./",
+      "description": "Governed Claude Code workflow: Front Door router, five pinned agents, independent Critic, guardrail hooks."
+    }
+  ]
+}

@@ -22,7 +22,7 @@ Before any part of a task is delegated to another agent, the session writes a bo
 
 The command starts at `$CLAUDE_PROJECT_DIR` when it is set, otherwise at the current directory, finds the nearest activated project at or above it (the directory holding this file as `.claude/rules/agency-workflow-kit.md`) and runs that project's installed Front Door CLI, so it resolves from the project root, a nested directory or a linked worktree under the project. With no activated project, or one without its installed CLI, it prints `studio_front_door.py not found` and exits non-zero without routing anything.
 
-The decomposition is a JSON array of work orders. Each work order has `work_id`, `objective`, `scope`, `non_goals`, `acceptance_criteria`, `executor`, `owned_paths`, `permitted_side_effects` and `evidence_required`, plus optional `dependencies` and `operator_gate_required`. The result's `path` and `delegations` are the routing decision; the `studio-run-engine` skill describes how each route is carried out.
+The decomposition is a JSON array of work orders. Each work order has `work_id`, `objective`, `scope`, `non_goals`, `acceptance_criteria`, `executor`, `owned_paths`, `permitted_side_effects` and `evidence_required`, plus optional `dependencies`, `operator_gate_required` and `risk` (`low`, `medium` or `high`). The result's `path` and `delegations` are the routing decision; the `studio-run-engine` skill describes how each route is carried out.
 
 When planning signals are materially ambiguous, `--signals-json '<signals>'` returns a clarification/planning on-ramp. That output is a planning step and not a delegation-routing decision. Routing comes from `--decomposition`; the two flags can be combined.
 

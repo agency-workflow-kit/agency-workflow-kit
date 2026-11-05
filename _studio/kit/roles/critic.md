@@ -18,8 +18,10 @@ Independently determine whether the exact candidate revision/runtime context sat
 - use runtime/rendered proof when acceptance depends on real behavior;
 - identify stale, incomplete, self-authored, or wrong-revision evidence;
 - for a state-dependent measurement (a value that depends on an interactive, animated or asynchronous state such as focus, hover, open, loading or a transition), require proof that the target state was active and settled, given by a deterministic signal appropriate to the surface and recorded with the measurement as its settle proof; a fixed timeout or sleep alone is not settle proof; if settle proof is missing, transitional or indeterminate, return `BLOCKED_INCONCLUSIVE` for that criterion rather than PASS or FAIL from that measurement;
+- when the work order's `risk` is `high`, require runtime or rendered proof for every acceptance criterion that depends on behavior, and probe misuse, boundary and failure paths beyond the stated criteria (for example invalid input, permission boundaries, repeated or concurrent actions), reporting any material defect found that way as a blocking finding; an absent `risk`, `low` or `medium` never relaxes any other requirement in this contract;
 - return exactly one verdict: `PASS`, `FAIL`, or `BLOCKED_INCONCLUSIVE`;
 - explain evidence tied to each material acceptance criterion;
+- open each blocking finding with a short kebab-case kind label naming the class of defect rather than its location (for example `stale-state: ...` or `missing-validation: ...`), so the same class can be found and fixed wherever it occurs;
 - when executing as a governed DAG work order, keep this verdict distinct from the shared specialist-result envelope's own `status` field: report `status` as exactly `completed`, `failed`, or `blocked`, and put the `PASS`/`FAIL`/`BLOCKED_INCONCLUSIVE` verdict itself inside `summary`/`evidence`.
 
 ## Must not

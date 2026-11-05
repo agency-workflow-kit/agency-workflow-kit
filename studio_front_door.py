@@ -100,6 +100,7 @@ concern, entirely separate from entry-path routing.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
 import sys
@@ -439,9 +440,13 @@ def _complete_admitted_entry(
             if authorization_error:
                 result["authorization_error"] = authorization_error
             return result
+        released_authorization = dict(task.operator_authorization)
         join = _release_authorized_gate(
             task, execute_phases=execute_phases, verify_phases=verify_phases,
         )
+        task._released_work = [
+            _release_evidence(task, released_authorization, supplemental.get("critic_evidence")),
+        ]
         still_gated = any(
             row.get("disposition") == ADMISSION_GATED
             for row in ((task.entry_route or {}).get("admission") or {}).get("results") or []
@@ -588,7 +593,53 @@ def _admitted_payload(task, join, error=None, completion_error=None) -> dict:
     }
     if emitted:
         result["emitted_evidence"] = emitted
+    if getattr(task, "_released_work", None):
+        result["released_work"] = task._released_work
     return result
+
+
+def _release_evidence(task, authorization: Mapping[str, Any], supplied_critic: Any) -> dict:
+    """One gate release's evidence (#175): the bound authorization, plus Critic only when valid for that work.
+
+    Critic evidence passes the same validators DONE applies (binding, provenance,
+    verified_revision == that work's worktree HEAD) or is recorded as None.
+    Observational only: the release itself is unchanged.
+    """
+    from studio_autonomous_execution import (
+        NON_CRITIC_TIMING_KEYS,
+        AutonomousExecutionError,
+        _require_bound_critic_evidence,
+    )
+    from studio_verification_adapters import VerificationAdapterError, validate_critic_evidence
+
+    work_id = authorization.get("work_id")
+    run = next(
+        (item for item in task.workstream_runs
+         if item.get("passed") and item.get("engine") is not None and item["evidence"]["work_id"] == work_id),
+        None,
+    )
+    critic = None
+    if (
+        run is not None
+        and isinstance(supplied_critic, Mapping)
+        and (supplied_critic.get("work_order_id") or supplied_critic.get("work_id")) == work_id
+    ):
+        supplied = {key: value for key, value in supplied_critic.items() if key not in NON_CRITIC_TIMING_KEYS}
+        try:
+            bound = _require_bound_critic_evidence(
+                {"critic_evidence": supplied}, task_id=task.task_id, frozen_work_order=task.frozen_work_order or [],
+            )
+            evidence = {**supplied, **bound}
+            fingerprint = run["engine"].verification_fingerprint
+            validate_critic_evidence(
+                {"content_fingerprint": fingerprint, **evidence},
+                task_id=task.task_id, content_fingerprint=fingerprint, work_order_id=work_id,
+            )
+            task._require_critic_revision_at_head(evidence)
+            critic = {key: evidence[key] for key in _CRITIC_EVENT_FIELDS if key in evidence}
+        except (AutonomousExecutionError, VerificationAdapterError):
+            critic = None
+    return {"work_id": work_id, "operator_authorization": dict(authorization), "critic": critic}
 
 
 
@@ -881,6 +932,71 @@ def execute_entry(
     }
 
 
+_CRITIC_EVENT_FIELDS = ("verdict", "verified_revision", "work_order_id", "task_id", "session", "session_id", "source")
+
+
+def _terminal_event_detail(result: Mapping[str, Any]) -> dict:
+    """The invocation's own terminal facts (#173): no task, workstream, factory or prompt copies.
+
+    Critic fields come only from validated DONE evidence (#171); the event's
+    own `ts` is RunEventLog timing, never Critic evidence.
+    """
+    route = result.get("entry_route") or None
+    blocker = result.get("blocker") or None
+    decision = result.get("authorization_decision") or None
+    critic = (result.get("evidence") or {}).get("critic_evidence") or None
+    auth_error = result.get("authorization_error")
+    return {
+        "source": "execute_json",
+        "task_id": result.get("task_id"),
+        "state": result.get("state"),
+        "error": result.get("error"),
+        "completion_error": result.get("completion_error"),
+        "authorization_error": _completion_error(auth_error) if auth_error else None,
+        "authorization_decision": (
+            {key: decision.get(key) for key in ("decision", "reason", "human_required")} if decision else None
+        ),
+        "blocker": (
+            {"interruption_class": blocker.get("interruption_class"), "reason": _completion_error(blocker.get("reason"))}
+            if blocker else None
+        ),
+        "entry_route": (
+            {
+                "path": route.get("path"),
+                "delegations": [
+                    {key: item.get(key) for key in ("agent", "work_ids", "isolation")}
+                    for item in route.get("delegations") or []
+                ],
+            }
+            if route else None
+        ),
+        "admission_join": result.get("admission_join"),
+        "prepared_gate_action": result.get("prepared_gate_action"),
+        "operator_authorization": (result.get("task") or {}).get("operator_authorization"),
+        "critic": {key: critic[key] for key in _CRITIC_EVENT_FIELDS if key in critic} if critic else None,
+        "emitted_evidence": result.get("emitted_evidence"),
+        "released_work": result.get("released_work"),
+    }
+
+
+def _record_terminal_event(result: Mapping[str, Any]) -> None:
+    """Append one run_terminal event to the durable RunEventLog for this invocation.
+
+    One log per task id, so repeated invocations of one governed flow append in
+    order. Observability is non-authoritative (studio_parallel_executor._emit):
+    a log failure never changes the task result.
+    """
+    from studio_run_events import RunEventLog, durable_event_log_path
+
+    try:
+        run_id = hashlib.sha256(str(result.get("task_id")).encode("utf-8")).hexdigest()[:32]
+        RunEventLog(run_id, path_for=durable_event_log_path).emit(
+            "run_terminal", detail=_terminal_event_detail(result),
+        )
+    except Exception:
+        pass
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--decomposition", type=Path, default=None,
@@ -954,6 +1070,7 @@ def main() -> int:
                 raise
             print(f"front-door error: {exc}", file=sys.stderr)
             return 1
+        _record_terminal_event(result)
         print(json.dumps(result, sort_keys=True, default=str))
         return 0
 

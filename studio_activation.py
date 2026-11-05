@@ -65,6 +65,11 @@ import sys
 import tempfile
 from pathlib import Path
 
+# Before the sibling imports: stock macOS python3 is 3.9 and otherwise fails later with a traceback.
+if __name__ == "__main__" and sys.version_info < (3, 12):
+    sys.exit(f"Agency Workflow Kit needs Python 3.12 or newer; {sys.executable} is "
+             f"{sys.version.split()[0]}. Run this command with a newer python3.")
+
 from studio_installer import InstallError, StudioInstaller, _is_rel_path_confined
 from studio_migration import WP_CAPABILITY_PATTERNS
 from studio_migration_apply import MigrationApplier
@@ -852,7 +857,7 @@ def main() -> int:
     derived from the resulting activation state, so scripting "did this
     fully succeed" never requires parsing the JSON body."""
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--kit", type=Path, default=Path("_studio/kit"))
+    parser.add_argument("--kit", type=Path, default=Path(__file__).resolve().parent / "_studio" / "kit")
     parser.add_argument("--project", type=Path, default=Path("."))
     parser.add_argument("--global-root", type=Path, default=None)
     mode = parser.add_mutually_exclusive_group()
@@ -908,7 +913,13 @@ def main() -> int:
         return 1
 
     print(json.dumps(result, sort_keys=True))
-    return 0 if result["activation"]["state"] == "ACTIVATED" else 1
+    state = result["activation"]["state"]
+    # Human verdict on stderr; stdout stays the JSON contract.
+    if state == "ACTIVATED":
+        print(f"ACTIVATED: {args.project.resolve()}\nNext: cd {args.project.resolve()} && claude", file=sys.stderr)
+    else:
+        print(f"Not activated: state {state}. The JSON above says what is missing.", file=sys.stderr)
+    return 0 if state == "ACTIVATED" else 1
 
 
 if __name__ == "__main__":

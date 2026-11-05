@@ -1,18 +1,26 @@
 # Agency Workflow Kit
 
-![Release 1.2.0](https://img.shields.io/badge/release-1.2.0-FF5B1F) ![License Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-2A2D33)
+![Public beta 1.3.0-rc.1](https://img.shields.io/badge/public_beta-1.3.0--rc.1-FF5B1F) ![License Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-2A2D33)
 
-> **Stable release: `1.2.0`.** Read [Known limitations](RELEASE-NOTES.md#known-limitations) before you use it on a project that matters.
+> **Public beta: `1.3.0-rc.1`. Not stable.** Interfaces, files and commands may change before `1.3.0`. The current stable release is `1.2.0`, which has no plugin install. Read [Known limitations](RELEASE-NOTES.md#known-limitations) before you use it on a project that matters.
+
+Agency Workflow Kit adds a governed way of working to [Claude Code](https://docs.claude.com/en/docs/claude-code/overview). Your session routes each task, bounded specialists do the work, an independent Critic checks the exact revision, and nothing merges, deploys or ships until you say so.
+
+## Install in one paste
+
+Needs macOS or Linux, `git`, Python 3.12 or newer and the Claude Code CLI. Paste this from inside your project's folder:
+
+```bash
+claude plugin install agency-workflow-kit --marketplace agency-workflow-kit/agency-workflow-kit#v1.3.0-rc.1 && claude "/agency-workflow-kit:activate"
+```
+
+The first command installs the Kit as a Claude Code plugin, pinned to the release tag, once per machine. The second opens Claude Code and activates your project: it checks first, prints `ACTIVATED`, or says why it stopped. Then start a new session in the project so the Front Door rule and hooks load. In another project, run `/agency-workflow-kit:activate` there. The [Quick Start](QUICKSTART.md) covers what gets written, the install without the plugin, update and removal.
 
 ![Agency Workflow Kit. Claude Code does the work. You decide what ships. Diagram: the Operator gives a task to the Front Door, your Claude Code session, which routes it DIRECT, DELEGATE or DIRECTOR. An independent Critic checks the exact revision, and the Operator decides.](media/awk-hero.png)
 
 https://github.com/user-attachments/assets/10b14da1-7949-4c97-be58-e888ecc27ca6
 
 *A 75-second silent tour. Every value in it is copied from the real commands, sessions, hook tests and installed agent files behind this README.*
-
-Agency Workflow Kit adds a governed way of working to [Claude Code](https://docs.claude.com/en/docs/claude-code/overview). Your session routes each task, bounded specialists do the work, an independent Critic checks the exact revision, and nothing merges, deploys or ships until you say so.
-
-**[Start with the Quick Start →](QUICKSTART.md)**
 
 ## What you get
 
@@ -27,7 +35,7 @@ Agency Workflow Kit adds a governed way of working to [Claude Code](https://docs
 
 The first four cards come from real commands and sessions against copies of a small example project in a disposable setup. The guardrails card feeds test calls to the installed hook. The label at the top right of each card names its source, and for sessions the Claude Code version. On session cards, the `operator` row is the exact prompt given to the session. Every other value is copied from the session's output, except the `on-ramp` row on the vague-ask card, which comes from a separate run of the on-ramp CLI in the same folder. The sessions ran headless with permission prompts turned off, on Claude Code `2.1.305` and `2.1.306`. Those are newer patch versions than the formally qualified `2.1.301`. The cards were captured on the first public beta, and the version in each card's header is that capture's, not the current release.
 
-**Install once per project.** Preflight is read-only. Activation writes 22 project files and journals them. `--check-only` exits 0 only when the state is `ACTIVATED`.
+**Install once per project.** Preflight is read-only. Activation writes 23 project files and journals them. `--check-only` exits 0 only when the state is `ACTIVATED`.
 
 ![Card: the preflight, activate and check-only commands, with results: preflight status clear, 22 project files written to a journal, state ACTIVATED for the installed catalog version.](media/awk-activate.png)
 

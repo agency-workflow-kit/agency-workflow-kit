@@ -1,5 +1,42 @@
 # Release notes
 
+## 1.3.0-rc.1: public beta
+
+This public beta follows the `1.2.0` stable release. It adds a Claude Code plugin install, and it changes the runtime, so it ships as a prerelease first. `1.2.0` stays the stable release.
+
+### New
+
+- **Install as a Claude Code plugin.** `claude plugin install agency-workflow-kit --marketplace agency-workflow-kit/agency-workflow-kit#v1.3.0-rc.1` installs the Kit once per machine, pinned to the tag. Then `/agency-workflow-kit:activate` inside a project runs the preflight, activation and check for you, and stops at the first blocker. The [Quick Start](QUICKSTART.md#2-install-the-kit-source) covers update and removal for this route.
+- **Risk-tiered review.** A work order can carry `risk` (`low`, `medium` or `high`). The Director sets it by what a shipped defect would do to a user. For `high`, the Critic requires runtime or rendered proof and probes misuse, boundary and failure paths. Blocking Critic findings open with a kind label, such as `missing-validation:`, so the same class of defect can be fixed everywhere it occurs.
+- **Durable run evidence.** A governed `--execute-json` run records its terminal outcome and per-work-order release evidence in a durable run event log. The evidence survives removal of the linked worktree it ran in. Critic-authored evidence is kept apart from metadata the runtime observed.
+- **Clearer first run.** Activation prints `ACTIVATED` and the next command on success, or the state that stopped it. It refuses a Python older than 3.12 with a one-line message instead of a traceback. It finds its Kit relative to its own location, so `--kit` is optional.
+
+### Updating from 1.2.0
+
+Plugin route: install the plugin as above, then run `/agency-workflow-kit:activate` in each project. Clone route: follow [Quick Start step 8](QUICKSTART.md#8-update) from a linked worktree of the new tag, user-global scope first, then each project. Files you own are not changed. `--check-only` should report `ACTIVATED`; if it does not, run activation again (Quick Start step 4).
+
+### Supported runtime
+
+- Claude Code CLI `2.1.301`: formally qualified.
+- Claude Code CLI `2.1.302`: real-project dogfood evidence.
+- Newer patch versions: not formally qualified yet.
+- Python 3.12 or newer, with git, on macOS or Linux.
+
+### Known limitations
+
+- **Prerelease.** Dogfood on the `1.3.0` baseline has not started. Interfaces, files and commands may change before `1.3.0`.
+- **Plugin route.** It does not use the preview, authorize and update records of Quick Start step 8, which need a clone. A pinned plugin cannot be re-pinned in place: remove the marketplace and install the new tag. Uninstalling the plugin does not remove the files activation wrote. A folder Claude Code has not seen before asks you to trust it first.
+- **Claude Code only.** Cursor and Codex are not supported.
+- **Session location.** You must start Claude Code inside the activated project or worktree. A session started in another checkout does not load the Kit rule or hooks, and its native worktree isolation can root in the wrong clone.
+- **Verification coverage.** Real-project use was on macOS. Linux is covered only by the unit suite. Windows is not supported. The Claude Code Desktop app is not verified.
+- **No public test suite.** The test suite and certification evidence stay with the upstream development source. This repository contains the installable Kit only.
+- **No global uninstall command.** Per-project uninstall exists. Remove the user-global files by hand (see the Quick Start).
+- **Model access.** Pinned specialist models must be available to your Claude Code account.
+
+### Feedback
+
+Open an issue for bugs. Report security problems as described in [SECURITY.md](SECURITY.md).
+
 ## 1.2.0: stable release
 
 This is the first stable release of Agency Workflow Kit. It follows the `1.2.0-rc.2` public beta and carries two runtime fixes.

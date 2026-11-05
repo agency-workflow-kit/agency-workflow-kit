@@ -1014,11 +1014,6 @@ def validate_critic_evidence(
         raise VerificationAdapterError(
             "DONE fails closed: critic_evidence requires Critic session/source"
         )
-    timestamp = evidence.get("timestamp") or evidence.get("ended_at")
-    if not isinstance(timestamp, str) or not timestamp.strip():
-        raise VerificationAdapterError(
-            "DONE fails closed: critic_evidence.timestamp required"
-        )
     return {
         "result": result,
         "task_id": ev_task,
@@ -1026,7 +1021,6 @@ def validate_critic_evidence(
         "verified_revision": verified_rev.strip(),
         "content_fingerprint": verified_fp,
         "session": session.strip(),
-        "timestamp": timestamp.strip(),
         "source": evidence.get("source") or session.strip(),
     }
 

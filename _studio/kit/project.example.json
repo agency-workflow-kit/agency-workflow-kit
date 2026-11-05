@@ -18,7 +18,7 @@
     "previewUrl": null,
     "productionUrl": null
   },
-  "kitVersion": "1.2.0",
+  "kitVersion": "1.3.0-rc.1",
   "mode": "adopt",
   "profile": {
     "database": null,

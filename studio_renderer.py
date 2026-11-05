@@ -83,6 +83,7 @@ FRONT_DOOR_RUNTIME_MODULES = (
     "studio_renderer",
     "studio_work_order_plan",
     "studio_director_mcp_grants",
+    "studio_run_events",
 )
 
 # studio_capability_router.DEFAULT_MANIFEST_PATH resolves to

@@ -110,6 +110,9 @@ EXISTING_OPERATOR_GATE_KINDS = frozenset({
 # that module is kit-repo-only and must not enter the Front Door closure).
 ACCEPTED_CRITIC_VERDICTS = frozenset({"PASS", "APPROVE"})
 
+# The Critic schema defines no timing; a supplied value is not Critic-emitted (#171).
+NON_CRITIC_TIMING_KEYS = ("timestamp", "ended_at", "timestamp_basis")
+
 # Agreed clarification bound: one material clarification phase per task.
 # A repeated material clarification becomes UNRESOLVABLE_BLOCKER (no loop).
 MAX_MATERIAL_CLARIFICATIONS = 1
@@ -575,6 +578,11 @@ class AutonomousExecutionTask:
                 f"complete_done only from VERIFYING, not {self.state}"
             )
         evidence = dict(evidence or {})
+        if isinstance(evidence.get("critic_evidence"), Mapping):
+            evidence["critic_evidence"] = {
+                k: v for k, v in evidence["critic_evidence"].items()
+                if k not in NON_CRITIC_TIMING_KEYS
+            }
         if boolean_only_done_attempt(evidence) and not evidence.get("factory_envelopes"):
             raise AutonomousExecutionError(
                 "DONE fails closed: boolean-only self-report rejected; "
@@ -1327,6 +1335,7 @@ class AutonomousExecutionTask:
     def _durable_record_is_fresh(self, work_id: str, record: Mapping[str, Any] | None) -> bool:
         from pathlib import Path
         from studio_factory_run import capture_content_fingerprint
+        from studio_run_events import stable_repo_root
 
         if not isinstance(record, Mapping):
             return False
@@ -1342,6 +1351,9 @@ class AutonomousExecutionTask:
         if not isinstance(content, str) or not content:
             return False
         if not isinstance(verification, str) or not verification:
+            return False
+        # #169: the verification must bind the very content being re-proven.
+        if content != verification:
             return False
         if not isinstance(record.get("provider"), str) or not record.get("provider"):
             return False
@@ -1361,6 +1373,9 @@ class AutonomousExecutionTask:
         if "model" not in provenance:
             return False
         if not Path(worktree["path"]).is_dir() or not Path(worktree["index_path"]).is_file():
+            return False
+        # #169: a record is only fresh for the repository its worktree belongs to.
+        if not self.worktree_cwd or stable_repo_root(worktree["path"]) != stable_repo_root(self.worktree_cwd):
             return False
         try:
             current = capture_content_fingerprint(
@@ -1678,11 +1693,15 @@ def _factory_evidence_record(evidence: Mapping[str, Any], engine: Any) -> dict[s
     }
 
 
-def _write_factory_evidence(record: Mapping[str, Any]) -> str | None:
+FACTORY_EVIDENCE_STATE_PURPOSE = "factory-evidence"
+
+
+def _write_factory_evidence(record: Mapping[str, Any], *, state_base: Any = None) -> str | None:
     import hashlib
     import json
     import subprocess
-    from pathlib import Path
+
+    from studio_run_events import durable_runs_root
 
     worktree = record.get("worktree") or {}
     path = worktree.get("path") if isinstance(worktree, Mapping) else None
@@ -1697,19 +1716,23 @@ def _write_factory_evidence(record: Mapping[str, Any]) -> str | None:
     if probe.returncode != 0:
         return None
     ref = str(record["evidence_ref"])
-    directory = Path(probe.stdout.strip()) / "studio-factory-evidence"
+    # #167: keyed by the stable repository, outside every worktree, so
+    # `git worktree remove`/`prune` cannot delete it.
+    directory = durable_runs_root(project=path, state_base=state_base, purpose=FACTORY_EVIDENCE_STATE_PURPOSE)
     directory.mkdir(parents=True, exist_ok=True)
     name = hashlib.sha256(ref.encode("utf-8")).hexdigest() + ".json"
     (directory / name).write_text(json.dumps(record, sort_keys=True, default=str), encoding="utf-8")
     return ref
 
 
-def resolve_factory_evidence(refs: Mapping[str, Any] | None, worktrees: Mapping[str, Any] | None) -> dict[str, Any]:
+def resolve_factory_evidence(refs: Mapping[str, Any] | None, worktrees: Mapping[str, Any] | None, *, state_base: Any = None) -> dict[str, Any]:
     """Load previously emitted Factory evidence by reference."""
     import hashlib
     import json
     import subprocess
     from pathlib import Path
+
+    from studio_run_events import durable_runs_root
 
     if not isinstance(refs, Mapping) or not refs:
         return {}
@@ -1728,6 +1751,8 @@ def resolve_factory_evidence(refs: Mapping[str, Any] | None, worktrees: Mapping[
         )
         if probe.returncode != 0:
             continue
+        directories.append(durable_runs_root(project=path, state_base=state_base, purpose=FACTORY_EVIDENCE_STATE_PURPOSE))
+        # Pre-#167 location, still read so evidence a live worktree already holds keeps resolving.
         directories.append(Path(probe.stdout.strip()) / "studio-factory-evidence")
     resolved: dict[str, Any] = {}
     for work_id, ref in refs.items():
