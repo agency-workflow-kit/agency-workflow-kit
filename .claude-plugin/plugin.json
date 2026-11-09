@@ -1,6 +1,6 @@
 {
   "name": "agency-workflow-kit",
-  "version": "1.3.0-rc.1",
+  "version": "1.3.0-rc.2",
   "description": "Governed Claude Code workflow: a Front Door router, five pinned agents, an independent Critic and guardrail hooks. Run /agency-workflow-kit:activate inside a project to activate it.",
   "author": {
     "name": "Agency Workflow Kit"

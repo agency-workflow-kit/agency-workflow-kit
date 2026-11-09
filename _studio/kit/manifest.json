@@ -3,7 +3,7 @@
   "manifest_status": "candidate",
   "kit": {
     "name": "agency-workflow-kit",
-    "version": "1.3.0-rc.1",
+    "version": "1.3.0-rc.2",
     "visibility": "public-beta",
     "runtime_target": "claude-code",
     "runtime_readiness": "implementation_freeze_ready"
@@ -146,16 +146,17 @@
         "This does not authorize a tag, GitHub Release, or public/stable.",
         "2026-10-25: dogfood complete and runtime-discovery-evidence (class C) accepted for the supported surface on the 1.2.0 baseline (docs/release/certification/dogfood/stable-1.2.0-task-matrix/README.md). The notes above record the internal cut binding as it was. release_gate.status and public_stable stay blocked; tag_or_release_authorized stays false.",
         "1.2.0 was published as the public stable release (tag v1.2.0, public main c879f85).",
-        "1.3.0-rc.1 is a public-beta prerelease candidate (visibility public-beta) cut from milestone 1500e0e. The dogfood and class C fields above describe the 1.2.0 baseline; dogfood on the 1.3.0 baseline has not started. Its publication (public main, tag v1.3.0-rc.1, GitHub prerelease) needs a separate Operator authorization; certification does not publish."
+        "1.3.0-rc.1 was published as a public-beta prerelease (tag v1.3.0-rc.1, public main 0ef3357).",
+        "1.3.0-rc.2 is a public-beta prerelease candidate (visibility public-beta) cut from milestone f5836fb. The dogfood and class C fields above describe the 1.2.0 baseline; dogfood on the 1.3.0 baseline has not started. Its publication (public main, tag v1.3.0-rc.2, GitHub prerelease) needs a separate Operator authorization; certification does not publish."
       ],
       "authorization_binding": {
-        "kit_version": "1.3.0-rc.1",
-        "parent_commit": "1500e0e5332c69976eda76a2b64a7a7d1e71b73a",
-        "provenance_record": "docs/release/certification/cut-1.3.0-rc.1-provenance.json",
-        "exact_release_hashes_record": "docs/release/certification/cut-1.3.0-rc.1-hashes.json",
-        "install_identity_record": "docs/release/certification/cut-1.3.0-rc.1-install-identity.json",
+        "kit_version": "1.3.0-rc.2",
+        "parent_commit": "f5836fb43b903bf762a4ecb8ce9e1bb9ec45dfb2",
+        "provenance_record": "docs/release/certification/cut-1.3.0-rc.2-provenance.json",
+        "exact_release_hashes_record": "docs/release/certification/cut-1.3.0-rc.2-hashes.json",
+        "install_identity_record": "docs/release/certification/cut-1.3.0-rc.2-install-identity.json",
         "tree_oid_policy": "not_embedded",
-        "identity_blobs_field": "docs/release/certification/cut-1.3.0-rc.1-hashes.json#identity_blobs",
+        "identity_blobs_field": "docs/release/certification/cut-1.3.0-rc.2-hashes.json#identity_blobs",
         "note": "authorized true only for kit_version + parent_commit + identity_blobs + tree_oid_policy not_embedded + provenance/hash/install-identity records. Land is valid only when HEAD^{tree} equals a fresh write-tree of this exact index; that OID is not stored inside the tree. release_gate.status and public_stable remain blocked; tag_or_release_authorized remains false."
       }
     },
@@ -277,7 +278,7 @@
         "evidence": [
           "_studio/kit/adapters/claude-code/README.md",
           "docs/release/checklist.md",
-          "docs/release/certification/cut-1.3.0-rc.1-provenance.json",
+          "docs/release/certification/cut-1.3.0-rc.2-provenance.json",
           "docs/release/certification/runtime-live-20260923.md",
           "docs/release/certification/runtime-live-20260923.json"
         ],
@@ -290,7 +291,7 @@
         "evidence": [
           "_studio/kit/manifest.json",
           "docs/release/checklist.md",
-          "docs/release/certification/cut-1.3.0-rc.1-hashes.json"
+          "docs/release/certification/cut-1.3.0-rc.2-hashes.json"
         ],
         "internal_cut_still_produces": true
       },

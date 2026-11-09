@@ -1656,6 +1656,7 @@ def build_done_evidence_from_factory(
         "critic_not_required": critic_not_required,
         "critic_verdict": critic_verdict,
         "critic_evidence": critic_evidence_record,
+        "acceptance_ledger": supplemental.get("acceptance_ledger"),
         "operator_gate_required": gate_required,
         "operator_gate_evidence": operator_gate_record,
         "factory_envelopes": [e.as_dict() for e in engine.envelopes],

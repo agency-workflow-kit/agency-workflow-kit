@@ -619,6 +619,9 @@ class AutonomousExecutionTask:
             evidence = dict(evidence)
             evidence["critic_verdict"] = bound["verdict"]
             evidence["critic_evidence"] = {**supplied, **bound}
+            evidence["acceptance_ledger"] = _acceptance_ledger(
+                evidence["critic_evidence"], self.frozen_work_order or []
+            )
 
         if self.critic_required and isinstance(evidence.get("critic_evidence"), dict):
             ce = dict(evidence["critic_evidence"])
@@ -1896,6 +1899,26 @@ def build_profile_phase_specs(
         payload = {k: v for k, v in payload.items() if k in _PHASESPEC_FIELDS}
         specs.append(PhaseSpec(**payload))
     return specs
+
+
+def _acceptance_ledger(
+    critic_evidence: Mapping[str, Any],
+    frozen_work_order: Sequence[Mapping[str, Any]],
+) -> dict[str, Any]:
+    """Per-criterion Critic results for the bound work order, checked fail-closed."""
+    from studio_verification_adapters import VerificationAdapterError, validate_acceptance_results
+
+    work_id = critic_evidence.get("work_order_id") or critic_evidence.get("work_id")
+    entry = next((e for e in frozen_work_order if e.get("work_id") == work_id), None) or {}
+    try:
+        ledger = validate_acceptance_results(
+            entry.get("acceptance_criteria") or [],
+            critic_evidence.get("acceptance_results"),
+            verified_revision=critic_evidence.get("verified_revision"),
+        )
+    except VerificationAdapterError as exc:
+        raise AutonomousExecutionError(str(exc)) from exc
+    return {"work_id": work_id, **ledger}
 
 
 def _require_bound_critic_evidence(

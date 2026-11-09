@@ -15,6 +15,19 @@
     "checks_run": {"type": "array", "items": {"type": "string"}, "default": []},
     "evidence": {"type": "array", "minItems": 1, "items": {"type": "string"}},
     "risks": {"type": "array", "items": {"type": "string"}, "default": []},
+    "acceptance_claims": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "status", "evidence"],
+        "properties": {
+          "id": {"type": "string", "minLength": 1},
+          "status": {"enum": ["done", "not_done"]},
+          "evidence": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}}
+        }
+      }
+    },
     "operator_gate_pending": {"type": "boolean", "default": false},
     "decision_request": {
       "type": "object",

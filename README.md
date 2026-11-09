@@ -1,8 +1,8 @@
 # Agency Workflow Kit
 
-![Public beta 1.3.0-rc.1](https://img.shields.io/badge/public_beta-1.3.0--rc.1-FF5B1F) ![License Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-2A2D33)
+![Public beta 1.3.0-rc.2](https://img.shields.io/badge/public_beta-1.3.0--rc.2-FF5B1F) ![License Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-2A2D33)
 
-> **Public beta: `1.3.0-rc.1`. Not stable.** Interfaces, files and commands may change before `1.3.0`. The current stable release is `1.2.0`, which has no plugin install. Read [Known limitations](RELEASE-NOTES.md#known-limitations) before you use it on a project that matters.
+> **Public beta: `1.3.0-rc.2`. Not stable.** Interfaces, files and commands may change before `1.3.0`. The current stable release is `1.2.0`, which has no plugin install. Read [Known limitations](RELEASE-NOTES.md#known-limitations) before you use it on a project that matters.
 
 Agency Workflow Kit adds a governed way of working to [Claude Code](https://docs.claude.com/en/docs/claude-code/overview). Your session routes each task, bounded specialists do the work, an independent Critic checks the exact revision, and nothing merges, deploys or ships until you say so.
 
@@ -11,7 +11,7 @@ Agency Workflow Kit adds a governed way of working to [Claude Code](https://docs
 Needs macOS or Linux, `git`, Python 3.12 or newer and the Claude Code CLI. Paste this from inside your project's folder:
 
 ```bash
-claude plugin install agency-workflow-kit --marketplace agency-workflow-kit/agency-workflow-kit#v1.3.0-rc.1 && claude "/agency-workflow-kit:activate"
+claude plugin install agency-workflow-kit --marketplace agency-workflow-kit/agency-workflow-kit#v1.3.0-rc.2 && claude "/agency-workflow-kit:activate"
 ```
 
 The first command installs the Kit as a Claude Code plugin, pinned to the release tag, once per machine. The second opens Claude Code and activates your project: it checks first, prints `ACTIVATED`, or says why it stopped. Then start a new session in the project so the Front Door rule and hooks load. In another project, run `/agency-workflow-kit:activate` there. The [Quick Start](QUICKSTART.md) covers what gets written, the install without the plugin, update and removal.

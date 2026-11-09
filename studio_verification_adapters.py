@@ -1025,6 +1025,122 @@ def validate_critic_evidence(
     }
 
 
+def _criterion_key(item: Any) -> tuple[str, str]:
+    """(key, text) for one acceptance criterion: its id when it has one, else its text."""
+    if isinstance(item, str) and item.strip():
+        return item.strip(), item.strip()
+    if isinstance(item, Mapping):
+        cid, text = item.get("id"), item.get("text")
+        if isinstance(cid, str) and cid.strip() and isinstance(text, str) and text.strip():
+            return cid.strip(), text.strip()
+    raise VerificationAdapterError(
+        "DONE fails closed: each acceptance criterion must be a non-empty string "
+        "or {id, text} with non-empty strings"
+    )
+
+
+def validate_acceptance_results(
+    criteria: Sequence[Any],
+    acceptance_results: Any,
+    *,
+    verified_revision: str | None = None,
+) -> dict[str, Any]:
+    """Every acceptance criterion needs exactly one evidenced pass from the Critic.
+
+    Opt-in by data: work orders whose criteria are all plain strings and whose
+    Critic evidence carries no acceptance_results stay legacy (unitemized).
+    Criteria with ids, or any supplied acceptance_results, are checked fail-closed:
+    no missing, extra or duplicate result, every result "pass" with evidence,
+    and any item's reviewed_revision equal to the verified revision.
+    """
+    keyed = [_criterion_key(item) for item in criteria or ()]
+    if len({key for key, _ in keyed}) != len(keyed):
+        raise VerificationAdapterError(
+            "DONE fails closed: acceptance criteria ids/texts must be unique"
+        )
+    has_ids = any(isinstance(item, Mapping) for item in criteria or ())
+    if acceptance_results is None and not has_ids:
+        return {"mode": "legacy_unitemized", "criteria_count": len(keyed)}
+    if not isinstance(acceptance_results, list) or not acceptance_results:
+        raise VerificationAdapterError(
+            "DONE fails closed: critic_evidence.acceptance_results must list one "
+            "result per acceptance criterion"
+        )
+    by_id = {key: text for key, text in keyed if key != text}
+    by_text = {text: key for key, text in keyed}
+    seen: dict[str, dict[str, Any]] = {}
+    for item in acceptance_results:
+        if not isinstance(item, Mapping):
+            raise VerificationAdapterError(
+                "DONE fails closed: each acceptance result must be a mapping"
+            )
+        rid = item.get("id")
+        text = item.get("criterion")
+        has_id = isinstance(rid, str) and bool(rid.strip())
+        has_text = isinstance(text, str) and bool(text.strip())
+        id_key = rid.strip() if has_id and rid.strip() in by_id else None
+        text_key = by_text.get(text.strip()) if has_text else None
+        key = id_key or text_key
+        if key is None:
+            raise VerificationAdapterError(
+                f"DONE fails closed: acceptance result {rid or text!r} matches no criterion"
+            )
+        if id_key is not None and isinstance(text, str) and not has_text:
+            raise VerificationAdapterError(
+                f"DONE fails closed: acceptance result id {rid!r} has a blank criterion text; "
+                f"give criterion {by_id[id_key]!r} exactly or omit the field"
+            )
+        if has_id and has_text and id_key != text_key:
+            if id_key is None:
+                problem = f"id {rid!r} matches no criterion, but its criterion text {text!r} does"
+            elif text_key is None:
+                problem = f"id {rid!r} names criterion {by_id[id_key]!r}, but its criterion text {text!r} matches no criterion"
+            else:
+                problem = (
+                    f"id {rid!r} and criterion text {text!r} name different criteria "
+                    f"({id_key!r} and {text_key!r})"
+                )
+            raise VerificationAdapterError(f"DONE fails closed: acceptance result {problem}")
+        if key in seen:
+            raise VerificationAdapterError(
+                f"DONE fails closed: criterion {key!r} has more than one result"
+            )
+        if item.get("result") != "pass":
+            raise VerificationAdapterError(
+                f"DONE fails closed: criterion {key!r} result is {item.get('result')!r}, not 'pass'"
+            )
+        evidence = item.get("evidence")
+        if (
+            not isinstance(evidence, list)
+            or not evidence
+            or not all(isinstance(e, str) and e.strip() for e in evidence)
+        ):
+            raise VerificationAdapterError(
+                f"DONE fails closed: criterion {key!r} pass has no evidence"
+            )
+        reviewed = item.get("reviewed_revision")
+        if (
+            reviewed is not None
+            and verified_revision is not None
+            and str(reviewed).strip().lower() != str(verified_revision).strip().lower()
+        ):
+            raise VerificationAdapterError(
+                f"DONE fails closed: criterion {key!r} was reviewed at {reviewed!r}, "
+                f"not the verified revision {verified_revision!r}"
+            )
+        seen[key] = {"criterion": key, "result": "pass", "evidence": list(evidence)}
+    missing = [key for key, _ in keyed if key not in seen]
+    if missing:
+        raise VerificationAdapterError(
+            f"DONE fails closed: no Critic result for criteria {missing}"
+        )
+    return {
+        "mode": "itemized",
+        "verified_revision": verified_revision,
+        "results": [seen[key] for key, _ in keyed],
+    }
+
+
 def validate_operator_gate_evidence(
     evidence: Mapping[str, Any] | None,
     *,

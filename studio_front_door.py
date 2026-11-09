@@ -974,6 +974,7 @@ def _terminal_event_detail(result: Mapping[str, Any]) -> dict:
         "prepared_gate_action": result.get("prepared_gate_action"),
         "operator_authorization": (result.get("task") or {}).get("operator_authorization"),
         "critic": {key: critic[key] for key in _CRITIC_EVENT_FIELDS if key in critic} if critic else None,
+        "acceptance_ledger": (result.get("evidence") or {}).get("acceptance_ledger"),
         "emitted_evidence": result.get("emitted_evidence"),
         "released_work": result.get("released_work"),
     }
@@ -1101,7 +1102,19 @@ def main() -> int:
         print(json.dumps(planning_onramp_result_as_dict(result), sort_keys=True))
         return 0
 
-    text = args.decomposition.read_text(encoding="utf-8") if args.decomposition else sys.stdin.read()
+    no_input = "front-door error: no decomposition given; pass --decomposition <file> or pipe the JSON on stdin"
+    if args.decomposition is None and (sys.stdin is None or sys.stdin.isatty()):  # closed, or would wait on the terminal
+        print(no_input, file=sys.stderr)
+        return 1
+    try:
+        text = args.decomposition.read_text(encoding="utf-8") if args.decomposition else sys.stdin.read()
+    except (OSError, UnicodeDecodeError) as exc:
+        print(f"front-door error: cannot read decomposition file: {exc}", file=sys.stderr)
+        return 1
+    if not text.strip():
+        print(f"front-door error: decomposition file is empty: {args.decomposition}" if args.decomposition
+              else no_input, file=sys.stderr)
+        return 1
 
     try:
         output = route_entry(text)

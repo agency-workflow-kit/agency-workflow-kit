@@ -1,6 +1,6 @@
 # Quick Start
 
-This guide is for Agency Workflow Kit `1.3.0-rc.1`, a public beta. In the commands below, `<project>` is the absolute path of the project you want to activate.
+This guide is for Agency Workflow Kit `1.3.0-rc.2`, a public beta. In the commands below, `<project>` is the absolute path of the project you want to activate.
 
 ## 1. Requirements
 
@@ -16,7 +16,7 @@ This guide is for Agency Workflow Kit `1.3.0-rc.1`, a public beta. In the comman
 **As a Claude Code plugin (simplest).** Install once per machine, pinned to the release tag:
 
 ```bash
-claude plugin install agency-workflow-kit --marketplace agency-workflow-kit/agency-workflow-kit#v1.3.0-rc.1
+claude plugin install agency-workflow-kit --marketplace agency-workflow-kit/agency-workflow-kit#v1.3.0-rc.2
 ```
 
 Then, inside each project, start Claude Code and run `/agency-workflow-kit:activate`. It runs the preflight, activation and `--check-only` from step 4 for you, from the plugin's copy of the Kit, and stops at the first blocker. Start a new session afterwards so the Front Door rule and hooks load. To move to a newer release, replace the pin (a pinned marketplace cannot be re-pinned in place), then run `/agency-workflow-kit:activate` again in each project. Activation updates the shared `~/.claude` install in place. This route does not use the preview, authorize and update records of step 8, which need a clone:
@@ -32,8 +32,8 @@ To remove the Kit from a project, ask for it in that project: `/agency-workflow-
 ```bash
 git clone https://github.com/agency-workflow-kit/agency-workflow-kit.git
 cd agency-workflow-kit
-git worktree add ../awk-1.3.0-rc.1 v1.3.0-rc.1
-cd ../awk-1.3.0-rc.1
+git worktree add ../awk-1.3.0-rc.2 v1.3.0-rc.2
+cd ../awk-1.3.0-rc.2
 ```
 
 ## 3. What the Kit writes
@@ -41,6 +41,7 @@ cd ../awk-1.3.0-rc.1
 - **User-global, in `~/.claude`:** the five Kit agents (`agency-director`, `agency-researcher`, `agency-coder`, `agency-resolver`, `agency-critic`), the core Kit skills, their runtime, and the worktree gate hook `hooks/studio_worktree_gate.py`. Every project on the machine shares these.
 - **Per project, in `<project>/.claude`:** the worktree gate hook `hooks/studio_worktree_gate.py`, the Front Door entry rule `rules/agency-workflow-kit.md`, the Front Door runtime under `runtime/`, and the worktree-isolation keys composed into `settings.json`. The Kit journals every file it installs.
 - **Per project, in `<project>/_studio/project.json`:** the project manifest.
+- **Per git project, in `.git/info/exclude`:** a `.abide/` line, unless git already ignores it, so tool state never dirties a worktree.
 - Activation never writes your root `CLAUDE.md`. It does not install agents or core skills at project scope either.
 
 ## 4. Activate your first project

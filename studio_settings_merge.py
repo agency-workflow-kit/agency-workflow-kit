@@ -20,8 +20,10 @@ Kit-owned required setting: activation must not force a plain, unaddressed
 Claude Code session to resolve to `agency-director` by default -- entry-path
 routing is now the Front Door's job (`studio_front_door.py`), not a
 settings.json default. Composition therefore composes: `worktree.bgIsolation`,
-`worktree.baseRef`, the `PreToolUse:Bash`/`PreToolUse:Agent` gate hooks, and
-(#138) Claude Code's native `attribution` with `commit` and `pr` hidden. An Operator's own pre-existing
+`worktree.baseRef`, the `PreToolUse:Bash`/`PreToolUse:Agent` gate hooks, the
+`Stop`/`SubagentStop` work-order gate hooks on the same script,
+(#138) Claude Code's native `attribution` with `commit` and `pr` hidden, and
+(#194) `permissions.deny` Read rules for `.env` files. An Operator's own pre-existing
 `agent` key, of any value EXCEPT the exact legacy default the Workflow Kit
 itself used to write (`"agent": "agency-director"`, see LEGACY_DEFAULT_AGENT),
 is passed through by `_clone(existing)` untouched and is never inspected,
@@ -57,13 +59,23 @@ REQUIRED_BASE_REF = "head"
 GATE_COMMAND = 'python3 "$CLAUDE_PROJECT_DIR/.claude/hooks/studio_worktree_gate.py"'
 GATE_MARKER = "studio_worktree_gate.py"
 # (matcher, command) entries composition requires: the worktree Bash gate and,
-# on the same script, the #116 model-pin gate for Agent delegations.
-REQUIRED_GATE_HOOKS = (("Bash", GATE_COMMAND), ("Agent", GATE_COMMAND))
+# on the same script, the #116 model-pin gate for Agent delegations and the
+# A2 specialist finish gate on SubagentHandback.
+REQUIRED_GATE_HOOKS = (
+    ("Bash", GATE_COMMAND), ("Agent", GATE_COMMAND), ("SubagentHandback", GATE_COMMAND),
+)
+# Matcher-less events the same script gates: a Director turn may not end
+# with a delegated work order it has not closed (main session or subagent).
+REQUIRED_STOP_HOOK_EVENTS = ("Stop", "SubagentStop")
 # Claude Code's native attribution setting with every text hidden: the
 # canonical policy (CONTRIBUTING "Attribution policy", #138) forbids AI
 # co-author/"Generated with" attribution in Kit and project commits and PRs.
 # `false` is Claude Code's own shorthand for the same thing.
 REQUIRED_ATTRIBUTION = {"commit": "", "pr": ""}
+# #194 (A4): Claude Code's native deny rules keeping agents from reading
+# `.env` secrets. Appended to an Operator's own `permissions.deny`, never
+# replacing or reordering it. No `git push` deny: the Kit's PR flow pushes.
+REQUIRED_DENY = ("Read(./.env)", "Read(./.env.*)")
 
 # The exact top-level `agent` value Workflow Kit itself used to compose into
 # settings.json before ADR 0004 superseded it. Only this exact string is
@@ -166,6 +178,18 @@ def compose_worktree_isolation_settings(existing: dict) -> dict:
                 })
         settings["attribution"] = attribution
 
+    permissions = settings.get("permissions")
+    if permissions is None:
+        settings["permissions"] = {"deny": list(REQUIRED_DENY)}
+    elif not isinstance(permissions, dict):
+        conflicts.append({"field": "permissions", "required": {"deny": list(REQUIRED_DENY)}, "existing": permissions})
+    elif not isinstance(permissions.get("deny", []), list):
+        conflicts.append({"field": "permissions.deny", "required": list(REQUIRED_DENY), "existing": permissions["deny"]})
+    else:
+        deny = list(permissions.get("deny", []))
+        deny += [rule for rule in REQUIRED_DENY if rule not in deny]
+        settings["permissions"] = {**permissions, "deny": deny}
+
     hooks = settings.get("hooks")
     if hooks is None:
         hooks = {}
@@ -249,6 +273,32 @@ def compose_worktree_isolation_settings(existing: dict) -> dict:
 
             hooks = dict(hooks)
             hooks["PreToolUse"] = pre_tool_use
+            settings["hooks"] = hooks
+
+        for event in REQUIRED_STOP_HOOK_EVENTS:
+            entries = hooks.get(event)
+            if entries is None:
+                entries = []
+            elif not isinstance(entries, list):
+                conflicts.append({"field": f"hooks.{event}", "required": "array", "existing": entries})
+                continue
+            commands = [
+                hook.get("command")
+                for entry in entries if isinstance(entry, dict) and isinstance(entry.get("hooks"), list)
+                for hook in entry["hooks"] if isinstance(hook, dict)
+            ]
+            if GATE_COMMAND in commands:
+                continue
+            if any(GATE_MARKER in str(command) for command in commands):
+                conflicts.append({
+                    "field": f"hooks.{event}[work order gate]",
+                    "required": GATE_COMMAND,
+                    "existing": f"an existing {event} hook already references "
+                                "studio_worktree_gate.py with a different command",
+                })
+                continue
+            hooks = dict(hooks)
+            hooks[event] = list(entries) + [{"hooks": [{"type": "command", "command": GATE_COMMAND}]}]
             settings["hooks"] = hooks
 
     return {"settings": settings, "conflicts": conflicts, "migrations": migrations}

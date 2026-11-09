@@ -577,12 +577,14 @@ def activate_external_project(
             raise wrapped from exc
 
         activation = check_activation_state(full_rendered_path, project_root, resolved_global_root)
+    git_exclude = ensure_git_excluded(project_root)
 
     return {
         "global": global_result,
         "project": project_result,
         "activation": activation,
         "claude_preflight": preflight,
+        "git_exclude": git_exclude,
         "project_manifest": {
             "path": manifest["path"],
             "created": manifest["created"],
@@ -590,6 +592,38 @@ def activate_external_project(
             "kit_version_current": manifest.get("kit_version_current"),
         },
     }
+
+
+# Untracked tool state that would otherwise make every specialist worktree
+# dirty and trip the finish gate's clean-tree rule (A2).
+GIT_EXCLUDED_TOOL_DIRS = (".abide/",)
+
+
+def ensure_git_excluded(project_root: Path, patterns=GIT_EXCLUDED_TOOL_DIRS) -> dict:
+    """Append each pattern git does not already ignore to the repository's
+    shared info/exclude (read by every linked worktree, never tracked, so
+    activation leaves `git status` untouched). Never raises: a non-git
+    folder or any failure is reported, never fatal."""
+    def git(*args):
+        return subprocess.run(["git", "-C", str(project_root), *args],
+                              capture_output=True, text=True, timeout=30)
+    try:
+        probe = git("rev-parse", "--git-path", "info/exclude")
+        if probe.returncode != 0:
+            return {"state": "NOT_GIT", "added": []}
+        exclude = Path(probe.stdout.strip())
+        if not exclude.is_absolute():
+            exclude = project_root / exclude
+        added = [p for p in patterns if git("check-ignore", "-q", "--no-index", p).returncode != 0]
+        if added:
+            exclude.parent.mkdir(parents=True, exist_ok=True)
+            current = exclude.read_text(encoding="utf-8") if exclude.exists() else ""
+            prefix = "" if not current or current.endswith("\n") else "\n"
+            with exclude.open("a", encoding="utf-8") as handle:
+                handle.write(prefix + "".join(f"{p}\n" for p in added))
+        return {"state": "OK", "path": str(exclude), "added": added}
+    except (OSError, subprocess.SubprocessError, UnicodeDecodeError) as exc:
+        return {"state": "ERROR", "added": [], "error": str(exc)}
 
 
 def _git_dirty_paths(project_root: Path) -> list[str]:
@@ -870,6 +904,11 @@ def main() -> int:
                            "and never touches the user-global catalog")
     args = parser.parse_args()
 
+    # Activation would otherwise create a mistyped path and report it ACTIVATED.
+    if not args.project.is_dir():
+        print(f"project not found: {args.project} is not a directory. Check the --project path.", file=sys.stderr)
+        return 1
+
     if args.uninstall:
         try:
             result = uninstall_project(args.project)
@@ -877,6 +916,7 @@ def main() -> int:
             print(f"uninstall error: {exc}", file=sys.stderr)
             return 1
         print(json.dumps(result, sort_keys=True))
+        print(_uninstall_summary(result, args.project.resolve()), file=sys.stderr)
         return 0
 
     global_root = args.global_root if args.global_root is not None else _default_global_root()
@@ -890,6 +930,8 @@ def main() -> int:
             print(f"preflight error: {exc}", file=sys.stderr)
             return 1
         print(json.dumps(result, sort_keys=True))
+        for line in _preflight_summary(result, args.project):
+            print(line, file=sys.stderr)
         return 1 if result["outcome"] == "BLOCK" else 0
 
     if args.check_only:
@@ -902,6 +944,13 @@ def main() -> int:
                 return 1
             result = check_activation_state(rendered_dir, args.project, global_root)
         print(json.dumps(result, sort_keys=True))
+        if result["state"] == "ACTIVATED":
+            print(f"ACTIVATED: {args.project.resolve()}", file=sys.stderr)
+        else:
+            reason = _settings_error_reason(result.get("project_settings_error"))
+            print(f"Not activated: state {result['state']}{f': {reason}' if reason else ''}. "
+                  "Run activation without --check-only to install or repair; the JSON above says what is missing.",
+                  file=sys.stderr)
         return 0 if result["state"] == "ACTIVATED" else 1
 
     try:
@@ -918,8 +967,51 @@ def main() -> int:
     if state == "ACTIVATED":
         print(f"ACTIVATED: {args.project.resolve()}\nNext: cd {args.project.resolve()} && claude", file=sys.stderr)
     else:
-        print(f"Not activated: state {state}. The JSON above says what is missing.", file=sys.stderr)
+        reason = result.get("project", {}).get("settings_compose_error") or _settings_error_reason(
+            result["activation"].get("project_settings_error"))
+        print(f"Not activated: state {state}{f': {reason}' if reason else ''}. The JSON above says what is missing.",
+              file=sys.stderr)
     return 0 if state == "ACTIVATED" else 1
+
+
+def _settings_error_reason(error: str | None) -> str | None:
+    return f"settings.json is malformed: {error}" if error else None
+
+
+def _is_git_worktree(project: Path) -> bool:
+    """True unless git positively says this is not a work tree; a missing git is not the project's fault."""
+    try:
+        probe = subprocess.run(["git", "-C", str(project), "rev-parse", "--is-inside-work-tree"],
+                               capture_output=True, text=True, timeout=30)
+    except (OSError, subprocess.SubprocessError):
+        return True
+    return probe.returncode == 0 and probe.stdout.strip() == "true"
+
+
+def _preflight_summary(result: dict, project: Path) -> list[str]:
+    """Human verdict for --preflight on stderr; stdout stays the JSON contract.
+    Warnings come first so the verdict is the last line (callers report the last stderr line)."""
+    lines = []
+    if not result["claude_preflight"].get("claude_code_version"):
+        lines.append("warning: `claude --version` did not answer; install Claude Code or put `claude` on PATH "
+                     "before you use the Kit.")
+    if not _is_git_worktree(project):
+        lines.append("warning: the project is not a git repository; the Kit's worktree isolation needs git.")
+    if result["outcome"] == "BLOCK":
+        lines.append(f"PREFLIGHT BLOCKED: {result.get('block_reason') or 'the JSON above says why'}.")
+    else:
+        lines.append(f"PREFLIGHT {result['outcome']}: activation would write {len(result['global_plan']['writes'])} "
+                     f"global and {len(result['project_plan']['writes'])} project files.")
+    return lines
+
+
+def _uninstall_summary(result: dict, project: Path) -> str:
+    if result["state"] == "NOT_INSTALLED":
+        return f"Nothing to uninstall: the Kit is not installed in {project}."
+    line = f"UNINSTALLED: removed {len(result['removed'])} Kit files from {project}."
+    if result["preserved_modified"]:
+        line += " Kept the files you modified: " + ", ".join(result["preserved_modified"]) + "."
+    return line
 
 
 if __name__ == "__main__":

@@ -1,5 +1,26 @@
 # Release notes
 
+## 1.3.0-rc.2: public beta
+
+This public beta follows `1.3.0-rc.1`. It adds evidence checks around delegated work and keeps agents away from `.env` files. `1.2.0` stays the stable release.
+
+### New
+
+- **Evidence for every acceptance criterion.** When a work order's acceptance criteria carry IDs, or the Critic reports per-criterion results, the work order is not DONE until the Critic records one evidenced pass for each criterion. A missing, blank or mismatched result fails the check. Older work orders with plain-text criteria and no per-criterion results keep the previous single verdict.
+- **Open work orders stop the Director from finishing.** A Director turn cannot end while a work order it delegated is still open. After three blocked attempts the turn ends anyway, so a confused session is never stuck.
+- **Finish check for Coder and Resolver handbacks (shadow).** A Coder or Resolver handback is checked for a claim per criterion and a clean working tree. In this release the check only records; it does not block. Set `STUDIO_FINISH_GATE=enforce` to have it block.
+- **No reading of `.env` files.** Activation adds `Read(./.env)` and `Read(./.env.*)` to the project's `permissions.deny`. Your own permission entries are kept. This blocks Claude Code's Read tool; it is not a sandbox, and a shell command can still read the file.
+- **Clearer errors.** Activation and Front Door errors say what went wrong and what to do, instead of a traceback.
+- **Tool state stays out of git.** Activation adds a `.abide/` line to `.git/info/exclude`, unless git already ignores it.
+
+### Updating from 1.3.0-rc.1
+
+Plugin route: remove the marketplace, install the `v1.3.0-rc.2` tag, then run `/agency-workflow-kit:activate` in each project. Clone route: follow [Quick Start step 8](QUICKSTART.md#8-update) from a linked worktree of the new tag, user-global scope first, then each project. Activated projects report as not `ACTIVATED` until you activate them again, because their settings do not yet carry the new `.env` rules.
+
+### Known limitations
+
+The `1.3.0-rc.1` limitations below still apply. The finish check does not block unless you turn it on.
+
 ## 1.3.0-rc.1: public beta
 
 This public beta follows the `1.2.0` stable release. It adds a Claude Code plugin install, and it changes the runtime, so it ships as a prerelease first. `1.2.0` stays the stable release.

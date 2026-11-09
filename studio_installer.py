@@ -515,12 +515,18 @@ class StudioInstaller:
         """Called only once uninstall() has actually deleted the gate script
         asset: strip any PreToolUse hook entry whose (matcher, command) is a
         command Workflow Kit itself has ever shipped for this gate (current
-        or a recognized superseded one), so no surviving hook can reference
+        or a recognized superseded one), and any Stop/SubagentStop entry
+        running the current gate command, so no surviving hook can reference
         a script this uninstall just removed. Every other settings.json key
         and every other hook is left untouched; a missing/malformed/
         already-clean settings.json is a no-op, not an error, since
         uninstall's own asset removal above already succeeded regardless."""
-        from studio_settings_merge import LEGACY_GATE_HOOKS, REQUIRED_GATE_HOOKS
+        from studio_settings_merge import (
+            GATE_COMMAND,
+            LEGACY_GATE_HOOKS,
+            REQUIRED_GATE_HOOKS,
+            REQUIRED_STOP_HOOK_EVENTS,
+        )
 
         path = self.target_dir / "settings.json"
         if not path.is_file():
@@ -534,45 +540,52 @@ class StudioInstaller:
         hooks = settings.get("hooks")
         if not isinstance(hooks, dict):
             return
-        pre_tool_use = hooks.get("PreToolUse")
-        if not isinstance(pre_tool_use, list):
-            return
 
-        owned_hooks = set(REQUIRED_GATE_HOOKS) | LEGACY_GATE_HOOKS
+        owned_pre_tool_use = set(REQUIRED_GATE_HOOKS) | LEGACY_GATE_HOOKS
+
+        def owned(event, matcher, command) -> bool:
+            if not isinstance(command, str):
+                return False
+            if event == "PreToolUse":
+                return isinstance(matcher, str) and (matcher, command) in owned_pre_tool_use
+            return command == GATE_COMMAND
+
         changed = False
-        cleaned: list = []
-        for entry in pre_tool_use:
-            if not isinstance(entry, dict):
-                cleaned.append(entry)
+        hooks = dict(hooks)
+        for event in ("PreToolUse", *REQUIRED_STOP_HOOK_EVENTS):
+            entries = hooks.get(event)
+            if not isinstance(entries, list):
                 continue
-            entry_hooks = entry.get("hooks")
-            if not isinstance(entry_hooks, list):
-                cleaned.append(entry)
-                continue
-            matcher = entry.get("matcher")
-            kept_hooks = []
-            for hook in entry_hooks:
-                command = hook.get("command") if isinstance(hook, dict) else None
-                if (isinstance(matcher, str) and isinstance(command, str)
-                        and (matcher, command) in owned_hooks):
-                    changed = True
+            cleaned: list = []
+            for entry in entries:
+                if not isinstance(entry, dict):
+                    cleaned.append(entry)
                     continue
-                kept_hooks.append(hook)
-            if kept_hooks:
-                cleaned.append({**entry, "hooks": kept_hooks} if len(kept_hooks) != len(entry_hooks) else entry)
-            else:
-                changed = True
+                entry_hooks = entry.get("hooks")
+                if not isinstance(entry_hooks, list):
+                    cleaned.append(entry)
+                    continue
+                matcher = entry.get("matcher")
+                kept_hooks = []
+                for hook in entry_hooks:
+                    command = hook.get("command") if isinstance(hook, dict) else None
+                    if owned(event, matcher, command):
+                        changed = True
+                        continue
+                    kept_hooks.append(hook)
+                if kept_hooks:
+                    cleaned.append({**entry, "hooks": kept_hooks} if len(kept_hooks) != len(entry_hooks) else entry)
+                else:
+                    changed = True
+            # Drop only containers this removal emptied, so an uninstall does
+            # not leave a Kit-shaped `"hooks": {"PreToolUse": []}` residue.
+            if cleaned:
+                hooks[event] = cleaned
+            elif entries:
+                hooks.pop(event)
 
         if not changed:
             return
-
-        # Drop only containers this removal emptied, so an uninstall does not
-        # leave a Kit-shaped `"hooks": {"PreToolUse": []}` residue behind.
-        hooks = dict(hooks)
-        if cleaned:
-            hooks["PreToolUse"] = cleaned
-        else:
-            hooks.pop("PreToolUse")
         if hooks:
             settings["hooks"] = hooks
         else:
