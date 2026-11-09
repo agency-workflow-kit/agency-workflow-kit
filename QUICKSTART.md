@@ -13,16 +13,17 @@ This guide is for Agency Workflow Kit `1.3.0-rc.2`, a public beta. In the comman
 
 ## 2. Install the Kit source
 
-**As a Claude Code plugin (simplest).** Install once per machine, pinned to the release tag:
+**As a Claude Code plugin (simplest).** Install once per machine, pinned to the release tag. The first command adds the Kit's marketplace at that tag, the second installs the plugin from it:
 
 ```bash
-claude plugin install agency-workflow-kit --marketplace agency-workflow-kit/agency-workflow-kit#v1.3.0-rc.2
+claude plugin marketplace add agency-workflow-kit/agency-workflow-kit#v1.3.0-rc.2
+claude plugin install agency-workflow-kit@agency-workflow-kit
 ```
 
 Then, inside each project, start Claude Code and run `/agency-workflow-kit:activate`. It runs the preflight, activation and `--check-only` from step 4 for you, from the plugin's copy of the Kit, and stops at the first blocker. Start a new session afterwards so the Front Door rule and hooks load. To move to a newer release, replace the pin (a pinned marketplace cannot be re-pinned in place), then run `/agency-workflow-kit:activate` again in each project. Activation updates the shared `~/.claude` install in place. This route does not use the preview, authorize and update records of step 8, which need a clone:
 
 ```bash
-claude plugin marketplace remove agency-workflow-kit && claude plugin install agency-workflow-kit --marketplace agency-workflow-kit/agency-workflow-kit#<new-tag>
+claude plugin marketplace remove agency-workflow-kit && claude plugin marketplace add agency-workflow-kit/agency-workflow-kit#<new-tag> && claude plugin install agency-workflow-kit@agency-workflow-kit
 ```
 
 To remove the Kit from a project, ask for it in that project: `/agency-workflow-kit:activate remove the Kit from this project` runs the step 9 uninstall. Then, once no project uses it, `claude plugin uninstall agency-workflow-kit@agency-workflow-kit` removes the plugin. Uninstalling the plugin does not remove the files activation wrote.

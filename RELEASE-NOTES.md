@@ -12,10 +12,11 @@ This public beta follows `1.3.0-rc.1`. It adds evidence checks around delegated 
 - **No reading of `.env` files.** Activation adds `Read(./.env)` and `Read(./.env.*)` to the project's `permissions.deny`. Your own permission entries are kept. This blocks Claude Code's Read tool; it is not a sandbox, and a shell command can still read the file.
 - **Clearer errors.** Activation and Front Door errors say what went wrong and what to do, instead of a traceback.
 - **Tool state stays out of git.** Activation adds a `.abide/` line to `.git/info/exclude`, unless git already ignores it.
+- **Install commands corrected.** The plugin is installed in two steps: `claude plugin marketplace add agency-workflow-kit/agency-workflow-kit#v1.3.0-rc.2`, then `claude plugin install agency-workflow-kit@agency-workflow-kit`. The one-line `--marketplace` form in the `1.3.0-rc.1` notes below is rejected by Claude Code.
 
 ### Updating from 1.3.0-rc.1
 
-Plugin route: remove the marketplace, install the `v1.3.0-rc.2` tag, then run `/agency-workflow-kit:activate` in each project. Clone route: follow [Quick Start step 8](QUICKSTART.md#8-update) from a linked worktree of the new tag, user-global scope first, then each project. Activated projects report as not `ACTIVATED` until you activate them again, because their settings do not yet carry the new `.env` rules.
+Plugin route: `claude plugin marketplace remove agency-workflow-kit && claude plugin marketplace add agency-workflow-kit/agency-workflow-kit#v1.3.0-rc.2 && claude plugin install agency-workflow-kit@agency-workflow-kit`, then run `/agency-workflow-kit:activate` in each project. Clone route: follow [Quick Start step 8](QUICKSTART.md#8-update) from a linked worktree of the new tag, user-global scope first, then each project. Activated projects report as not `ACTIVATED` until you activate them again, because their settings do not yet carry the new `.env` rules.
 
 ### Known limitations
 

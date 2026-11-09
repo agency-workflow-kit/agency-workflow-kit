@@ -11,10 +11,10 @@ Agency Workflow Kit adds a governed way of working to [Claude Code](https://docs
 Needs macOS or Linux, `git`, Python 3.12 or newer and the Claude Code CLI. Paste this from inside your project's folder:
 
 ```bash
-claude plugin install agency-workflow-kit --marketplace agency-workflow-kit/agency-workflow-kit#v1.3.0-rc.2 && claude "/agency-workflow-kit:activate"
+claude plugin marketplace add agency-workflow-kit/agency-workflow-kit#v1.3.0-rc.2 && claude plugin install agency-workflow-kit@agency-workflow-kit && claude "/agency-workflow-kit:activate"
 ```
 
-The first command installs the Kit as a Claude Code plugin, pinned to the release tag, once per machine. The second opens Claude Code and activates your project: it checks first, prints `ACTIVATED`, or says why it stopped. Then start a new session in the project so the Front Door rule and hooks load. In another project, run `/agency-workflow-kit:activate` there. The [Quick Start](QUICKSTART.md) covers what gets written, the install without the plugin, update and removal.
+The first two commands install the Kit as a Claude Code plugin, pinned to the release tag, once per machine. The third opens Claude Code and activates your project: it checks first, prints `ACTIVATED`, or says why it stopped. Then start a new session in the project so the Front Door rule and hooks load. In another project, run `/agency-workflow-kit:activate` there. The [Quick Start](QUICKSTART.md) covers what gets written, the install without the plugin, update and removal.
 
 ![Agency Workflow Kit. Claude Code does the work. You decide what ships. Diagram: the Operator gives a task to the Front Door, your Claude Code session, which routes it DIRECT, DELEGATE or DIRECTOR. An independent Critic checks the exact revision, and the Operator decides.](media/awk-hero.png)
 
