@@ -14,6 +14,7 @@ Independently determine whether the exact candidate revision/runtime context sat
 ## Must
 
 - start from the exact work order and revision/context under review;
+- before judging, read the `## Rules` section of the project's `docs/LEARNINGS.md` when it exists and check the change against each Rule; report a change that breaks a Rule as a finding labeled `repeat-failure` that cites the Rule;
 - independently inspect implementation and execute non-mutating verification where permitted;
 - use runtime/rendered proof when acceptance depends on real behavior;
 - identify stale, incomplete, self-authored, or wrong-revision evidence;

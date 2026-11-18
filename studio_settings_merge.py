@@ -23,7 +23,8 @@ settings.json default. Composition therefore composes: `worktree.bgIsolation`,
 `worktree.baseRef`, the `PreToolUse:Bash`/`PreToolUse:Agent` gate hooks, the
 `Stop`/`SubagentStop` work-order gate hooks on the same script,
 (#138) Claude Code's native `attribution` with `commit` and `pr` hidden, and
-(#194) `permissions.deny` Read rules for `.env` files. An Operator's own pre-existing
+(#194) `permissions.deny` Read rules for `.env` files, and (#195)
+`env.STUDIO_FINISH_GATE` = `enforce`. An Operator's own pre-existing
 `agent` key, of any value EXCEPT the exact legacy default the Workflow Kit
 itself used to write (`"agent": "agency-director"`, see LEGACY_DEFAULT_AGENT),
 is passed through by `_clone(existing)` untouched and is never inspected,
@@ -60,7 +61,7 @@ GATE_COMMAND = 'python3 "$CLAUDE_PROJECT_DIR/.claude/hooks/studio_worktree_gate.
 GATE_MARKER = "studio_worktree_gate.py"
 # (matcher, command) entries composition requires: the worktree Bash gate and,
 # on the same script, the #116 model-pin gate for Agent delegations and the
-# A2 specialist finish gate on SubagentHandback.
+# A2 specialist finish gate and the Resolver lessons gate on SubagentHandback.
 REQUIRED_GATE_HOOKS = (
     ("Bash", GATE_COMMAND), ("Agent", GATE_COMMAND), ("SubagentHandback", GATE_COMMAND),
 )
@@ -75,7 +76,19 @@ REQUIRED_ATTRIBUTION = {"commit": "", "pr": ""}
 # #194 (A4): Claude Code's native deny rules keeping agents from reading
 # `.env` secrets. Appended to an Operator's own `permissions.deny`, never
 # replacing or reordering it. No `git push` deny: the Kit's PR flow pushes.
-REQUIRED_DENY = ("Read(./.env)", "Read(./.env.*)")
+# Claude Code anchors a `./` rule at the session's current directory, so it
+# stops covering the project's `.env` after a `cd` into a subdirectory; a `/`
+# rule is anchored at the project root and keeps covering it. Both are
+# composed: the `./` pair stays for projects already activated with it.
+# A `/` rule names one path, so `/.env` covers only the root file; the
+# `/**/` pair, also anchored at the project root, matches at any depth, so
+# a `.env` in a sibling directory stays denied after a `cd`.
+REQUIRED_DENY = ("Read(./.env)", "Read(./.env.*)", "Read(/.env)", "Read(/.env.*)",
+                 "Read(/**/.env)", "Read(/**/.env.*)")
+# #195 (B10): the A2 finish gate runs in `enforce` mode in a Kit-activated
+# project. Claude Code passes settings `env` to hook subprocesses; an
+# Operator's other mode belongs in settings.local.json, which wins.
+REQUIRED_ENV = {"STUDIO_FINISH_GATE": "enforce"}
 
 # The exact top-level `agent` value Workflow Kit itself used to compose into
 # settings.json before ADR 0004 superseded it. Only this exact string is
@@ -189,6 +202,20 @@ def compose_worktree_isolation_settings(existing: dict) -> dict:
         deny = list(permissions.get("deny", []))
         deny += [rule for rule in REQUIRED_DENY if rule not in deny]
         settings["permissions"] = {**permissions, "deny": deny}
+
+    env = settings.get("env")
+    if env is None:
+        settings["env"] = dict(REQUIRED_ENV)
+    elif not isinstance(env, dict):
+        conflicts.append({"field": "env", "required": dict(REQUIRED_ENV), "existing": env})
+    else:
+        env = dict(env)
+        for name, required in REQUIRED_ENV.items():
+            if name not in env:
+                env[name] = required
+            elif env[name] != required:
+                conflicts.append({"field": f"env.{name}", "required": required, "existing": env[name]})
+        settings["env"] = env
 
     hooks = settings.get("hooks")
     if hooks is None:

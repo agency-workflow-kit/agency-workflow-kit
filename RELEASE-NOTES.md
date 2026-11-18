@@ -1,5 +1,28 @@
 # Release notes
 
+## 1.3.0-rc.3: public beta
+
+This public beta follows `1.3.0-rc.2`. It keeps the `.env` rules working after a session changes directory, turns the finish check on, and adds a lessons file that the Resolver writes and the other agents read. `1.2.0` stays the stable release.
+
+### Fixed
+
+- **`.env` rules survive a `cd`.** The two rules `1.3.0-rc.2` added, `Read(./.env)` and `Read(./.env.*)`, are anchored at the session's current directory. Once a session moved into a subdirectory they no longer covered the project's `.env`. Activation now also adds `Read(/.env)`, `Read(/.env.*)`, `Read(/**/.env)` and `Read(/**/.env.*)`, which are anchored at the project root and cover `.env` files at any depth. The rules also match files a project may keep on purpose, such as `.env.example`. Your own permission entries are kept. This still blocks only Claude Code's Read tool; it is not a sandbox, and a shell command can still read the file.
+
+### New
+
+- **The finish check now blocks.** Activation adds `STUDIO_FINISH_GATE=enforce` to the `env` of the project's `.claude/settings.json`. A Coder or Resolver handback for a delegated work order is sent back when it lacks a claim per criterion or leaves uncommitted changes. To record without blocking, set `STUDIO_FINISH_GATE` to `shadow` in `.claude/settings.local.json`, which takes precedence. A different value already in `settings.json` is kept and reported as a conflict.
+- **You are told when a gate gives up.** The finish check, the open-work-order check and the lessons check each stop blocking after three attempts, so a session is never stuck. Each now shows a message naming the gate and the failing rule when it lets a turn through that way.
+- **Lessons file.** After each correction cycle the Resolver appends one entry to the project's `docs/LEARNINGS.md`: the failure, the root cause, the fix and the lesson. The Coder reads the file's Rules before editing, and the Critic reports a change that breaks a Rule. A Resolver that changed files cannot hand back until its report carries that entry.
+- **Uninstall removes the `.abide/` exclude line.** Activation writes that line under a `# agency-workflow-kit` marker in the repository's `info/exclude`, and uninstall removes only the marked line.
+
+### Updating from 1.3.0-rc.2
+
+Plugin route: `claude plugin marketplace remove agency-workflow-kit && claude plugin marketplace add agency-workflow-kit/agency-workflow-kit#v1.3.0-rc.3 && claude plugin install agency-workflow-kit@agency-workflow-kit`, then run `/agency-workflow-kit:activate` in each project. Clone route: follow [Quick Start step 8](QUICKSTART.md#8-update) from a linked worktree of the new tag, user-global scope first, then each project. Updating does not change a project's settings: the new `.env` rules and the finish-check setting are written only when you activate the project again. Until then it reports as not `ACTIVATED`.
+
+### Known limitations
+
+The `1.3.0-rc.1` limitations below still apply. `Read` rules do not stop a shell command from reading a `.env` file.
+
 ## 1.3.0-rc.2: public beta
 
 This public beta follows `1.3.0-rc.1`. It adds evidence checks around delegated work and keeps agents away from `.env` files. `1.2.0` stays the stable release.

@@ -14,6 +14,7 @@ Implement the approved work order with minimal scope, deterministic checks, and 
 ## Must
 
 - stay inside owned paths/resources and permitted side effects;
+- before editing, read the `## Rules` section of the project's `docs/LEARNINGS.md` when it exists, plus `## Log` entries whose `TAGS` match the work, and follow those Rules;
 - investigate existing implementation before editing;
 - prefer the smallest complete change;
 - run applicable build/lint/type/test/deterministic checks;

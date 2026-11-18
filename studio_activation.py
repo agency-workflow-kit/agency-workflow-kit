@@ -59,6 +59,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -597,33 +598,83 @@ def activate_external_project(
 # Untracked tool state that would otherwise make every specialist worktree
 # dirty and trip the finish gate's clean-tree rule (A2).
 GIT_EXCLUDED_TOOL_DIRS = (".abide/",)
+# Comment line written above each pattern the Kit adds, so uninstall removes
+# only lines the Kit wrote and never a user's own identical line.
+GIT_EXCLUDE_MARKER = "# agency-workflow-kit"
+
+
+def _git(project_root: Path, *args) -> subprocess.CompletedProcess:
+    # GIT_*-stripped like the finish gate's _dirty_tree: an inherited GIT_DIR
+    # must not redirect the probe or the write to another repository.
+    env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
+    return subprocess.run(["git", "-C", str(project_root), *args],
+                          capture_output=True, text=True, timeout=30, env=env)
+
+
+def _git_exclude_path(project_root: Path) -> Path | None:
+    probe = _git(project_root, "rev-parse", "--git-path", "info/exclude")
+    if probe.returncode != 0:
+        return None
+    exclude = Path(probe.stdout.strip())
+    return exclude if exclude.is_absolute() else project_root / exclude
 
 
 def ensure_git_excluded(project_root: Path, patterns=GIT_EXCLUDED_TOOL_DIRS) -> dict:
     """Append each pattern git does not already ignore to the repository's
     shared info/exclude (read by every linked worktree, never tracked, so
-    activation leaves `git status` untouched). Never raises: a non-git
-    folder or any failure is reported, never fatal."""
-    def git(*args):
-        return subprocess.run(["git", "-C", str(project_root), *args],
-                              capture_output=True, text=True, timeout=30)
+    activation leaves `git status` untouched), each under a
+    GIT_EXCLUDE_MARKER line. A pattern git already ignores, by any line,
+    marked or not, is left alone. Never raises: a non-git folder or any
+    failure is reported, never fatal."""
     try:
-        probe = git("rev-parse", "--git-path", "info/exclude")
-        if probe.returncode != 0:
+        exclude = _git_exclude_path(project_root)
+        if exclude is None:
             return {"state": "NOT_GIT", "added": []}
-        exclude = Path(probe.stdout.strip())
-        if not exclude.is_absolute():
-            exclude = project_root / exclude
-        added = [p for p in patterns if git("check-ignore", "-q", "--no-index", p).returncode != 0]
+        added = [p for p in patterns if _git(project_root, "check-ignore", "-q", "--no-index", p).returncode != 0]
         if added:
             exclude.parent.mkdir(parents=True, exist_ok=True)
-            current = exclude.read_text(encoding="utf-8") if exclude.exists() else ""
-            prefix = "" if not current or current.endswith("\n") else "\n"
-            with exclude.open("a", encoding="utf-8") as handle:
-                handle.write(prefix + "".join(f"{p}\n" for p in added))
+            current = exclude.read_bytes() if exclude.exists() else b""
+            # Match the file's line endings, so a CRLF file stays CRLF.
+            nl = "\r\n" if b"\r\n" in current else "\n"
+            # A last line ending in a bare CR gets only the missing LF, never a second CR.
+            prefix = "" if not current or current.endswith(b"\n") else ("\n" if current.endswith(b"\r") else nl)
+            with exclude.open("ab") as handle:
+                handle.write((prefix + "".join(f"{GIT_EXCLUDE_MARKER}{nl}{p}{nl}" for p in added)).encode("utf-8"))
         return {"state": "OK", "path": str(exclude), "added": added}
     except (OSError, subprocess.SubprocessError, UnicodeDecodeError) as exc:
         return {"state": "ERROR", "added": [], "error": str(exc)}
+
+
+def remove_git_excluded(project_root: Path, patterns=GIT_EXCLUDED_TOOL_DIRS) -> dict:
+    """Undo ensure_git_excluded: drop every GIT_EXCLUDE_MARKER line, and the
+    line right after it when that line is one of the patterns. A marker whose
+    pattern line is gone (at end of file, or followed by another line) is an
+    orphan and is dropped alone. Unmarked lines are kept byte for byte,
+    including CRLF endings. Never raises."""
+    try:
+        exclude = _git_exclude_path(project_root)
+        if exclude is None:
+            return {"state": "NOT_GIT", "removed": []}
+        if not exclude.is_file():
+            return {"state": "OK", "path": str(exclude), "removed": []}
+        # Bytes, not read_text: universal newlines would rewrite CRLF as LF.
+        # surrogateescape: a non-UTF-8 user line survives byte for byte.
+        lines = exclude.read_bytes().decode("utf-8", "surrogateescape").splitlines(keepends=True)
+        kept, removed, i = [], [], 0
+        while i < len(lines):
+            if lines[i].rstrip("\r\n") == GIT_EXCLUDE_MARKER:
+                if i + 1 < len(lines) and lines[i + 1].rstrip("\r\n") in patterns:
+                    removed.append(lines[i + 1].rstrip("\r\n"))
+                    i += 1
+                i += 1
+                continue
+            kept.append(lines[i])
+            i += 1
+        if len(kept) != len(lines):
+            exclude.write_bytes("".join(kept).encode("utf-8", "surrogateescape"))
+        return {"state": "OK", "path": str(exclude), "removed": removed}
+    except (OSError, subprocess.SubprocessError, UnicodeDecodeError) as exc:
+        return {"state": "ERROR", "removed": [], "error": str(exc)}
 
 
 def _git_dirty_paths(project_root: Path) -> list[str]:
@@ -846,6 +897,10 @@ def uninstall_project(project_root: Path) -> dict:
     - user-owned files stay: _studio/project.json, the rest of
       .claude/settings.json (including the worktree keys activation
       composed, which carry no recorded original), and .studio-backups/.
+    - the info/exclude lines activation wrote under GIT_EXCLUDE_MARKER are
+      removed (remove_git_excluded); unmarked lines are the user's and stay.
+      This runs at every state, NOT_INSTALLED included, so a project whose
+      journal is gone still loses the Kit's exclude lines.
     - idempotent: a second run removes nothing and reports the same
       retained modifications.
 
@@ -878,6 +933,7 @@ def uninstall_project(project_root: Path) -> dict:
             "settings_json": (claude_dir / "settings.json").is_file(),
             "backups": (claude_dir / StudioInstaller.BACKUP_ROOT).is_dir(),
         },
+        "git_exclude": remove_git_excluded(project_root),
         "global_catalog": "untouched",
     }
 
@@ -1006,12 +1062,20 @@ def _preflight_summary(result: dict, project: Path) -> list[str]:
 
 
 def _uninstall_summary(result: dict, project: Path) -> str:
+    excluded = result.get("git_exclude", {}).get("removed", [])
+    exclude_note = (f" Removed the Kit's {', '.join(excluded)} line from the repository's git "
+                    "info/exclude, which every worktree of that repository shares.") if excluded else ""
+    if result.get("git_exclude", {}).get("state") == "ERROR":
+        exclude_note += (" Could not clean the Kit's line from the repository's git info/exclude: "
+                         f"{result['git_exclude'].get('error')}.")
     if result["state"] == "NOT_INSTALLED":
-        return f"Nothing to uninstall: the Kit is not installed in {project}."
+        if not exclude_note:
+            return f"Nothing to uninstall: the Kit is not installed in {project}."
+        return f"No Kit files to uninstall: the Kit is not installed in {project}." + exclude_note
     line = f"UNINSTALLED: removed {len(result['removed'])} Kit files from {project}."
     if result["preserved_modified"]:
         line += " Kept the files you modified: " + ", ".join(result["preserved_modified"]) + "."
-    return line
+    return line + exclude_note
 
 
 if __name__ == "__main__":

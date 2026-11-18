@@ -157,8 +157,9 @@ the reason. For an agency-coder/agency-resolver whose brief carries the
 result JSON for that work_id with status `completed`, one `done` claim with
 evidence per `- [id]` criterion in the brief, and a clean `git status`;
 status `blocked`/`failed` with a summary passes at once. Mode comes from
-STUDIO_FINISH_GATE (`shadow` by default: record, never block; `enforce`;
-`off`); in enforce mode a delegation is blocked at most three times. Every
+STUDIO_FINISH_GATE (`shadow` when unset: record, never block; `enforce`,
+which Kit activation composes; `off`); in enforce mode a delegation is
+blocked at most three times, and the release prints an Operator notice. Every
 decision is appended to a per-session JSONL ledger. Contract:
 docs/release/certification/dogfood/finish-gate/CONTRACT.md.
 
@@ -179,7 +180,33 @@ fields used here (`stop_hook_active`, `last_assistant_message`,
 `agent_type`, `agent_transcript_path`) were captured from a live Claude
 Code 2.1.318 session. Fails open on anything unreadable, and gives up
 after MAX_STOP_BLOCKS consecutive blocks so a confused Director is never
-trapped in an endless continuation loop.
+trapped in an endless continuation loop; giving up prints an Operator notice.
+
+Lessons gate, on the finish gate's PreToolUse "SubagentHandback" entry: for
+the reason above, only denying the handback can hold a subagent. Both gates
+run on every handback, lessons gate first, and a deny from either holds it
+with each gate's reason written out. Each keeps its own deny count (the
+lessons and Stop gates' counter file is keyed on the gate name; the finish
+gate counts its own ledger denies); an error inside one gate counts as allow
+for that gate only and is written to stderr as `GATE ERROR:`. When the lessons gate denies, the finish ledger records a
+passing verdict or a loop-guard release as `held`. When either gate denies, a give-up by the other is not
+announced to the Operator, since nothing was let through. The lessons gate has no shadow mode. An agency-resolver whose own transcript
+shows an Edit/Write-family call on any file other than <project
+root>/docs/LEARNINGS.md must hand back a report (`tool_input.message`)
+carrying the lessons entry resolver.md requires: a `### L<n>` heading plus
+FAILURE, ROOT CAUSE, FIX, LESSON and TAGS lines, whether it appended that
+entry to docs/LEARNINGS.md or returns it because the file is outside its
+owned paths. The entry may be plain lines or one string field of the
+specialist-result JSON (the whole message, or its last ```json block); it is
+never assembled across fields. The project root is the git top level of the
+payload's `cwd` (the Resolver's worktree); relative paths resolve against
+`cwd`. The entry in the report is checked, not the file on disk; edits made
+only through Bash or MCP tools do not trigger it, and a Resolver that ends
+with a plain final message without calling SubagentHandback is not gated at
+all. Fails open on anything unreadable, and releases after MAX_STOP_BLOCKS
+consecutive denies; when its counter file cannot be written, the earlier
+SubagentHandback calls in the Resolver's transcript are the count, so a
+first handback is still denied.
 """
 from __future__ import annotations
 
@@ -273,6 +300,21 @@ def _strip_fenced_blocks(text: str, *, keep_unclosed: bool = False) -> str:
 
 WORK_ORDER_TERMINAL_STATUSES = ("DONE", "BLOCKED", "OPERATOR_INPUT_REQUIRED")
 MAX_STOP_BLOCKS = 3
+# Counter-file keys for the gates that cap through _block_with_cap.
+STOP_GATE = "work-order-stop"
+LESSONS_GATE = "resolver-lessons"
+GATE_LABELS = {STOP_GATE: "WORK ORDER GATE", LESSONS_GATE: "LESSONS GATE"}
+# #195: a gate that gives up says so to the Operator instead of passing
+# silently. Claude Code shows a hook's `systemMessage` to the user; main()
+# prints every notice of this run as one JSON object on stdout.
+_OPERATOR_NOTICES: list[str] = []
+# Lessons gate: an agency-resolver that changed files must end with the
+# docs/LEARNINGS.md entry its role contract (resolver.md) requires.
+LESSON_AGENT = "agency-resolver"
+LESSONS_FILE = "docs/LEARNINGS.md"
+LESSON_FIELDS = ("FAILURE", "ROOT CAUSE", "FIX", "LESSON", "TAGS")
+LESSON_HEADING = re.compile(r"(?m)^[ \t>]*###[ \t]+L\d+\b")
+EDIT_TOOLS = frozenset({"Edit", "MultiEdit", "Write", "NotebookEdit"})
 TRANSCRIPT_SCAN_LINES = 50
 MAX_LINEAGE_HOPS = 20
 GIT_PROBE_TIMEOUT_SECONDS = 5
@@ -692,7 +734,9 @@ def _append_ledger(path: str, record: dict) -> None:
         pass  # a ledger failure never changes the decision
 
 
-def _finish_gate(payload: dict) -> int:
+def _finish_gate(payload: dict, held: bool = False) -> int:
+    """`held`: another handback gate already denied this call, so a passing
+    verdict or a loop-guard release is recorded as `held`."""
     mode = os.environ.get(FINISH_GATE_ENV)
     if mode == "off":
         return 0
@@ -719,14 +763,18 @@ def _finish_gate(payload: dict) -> int:
         "agent_type": agent_type, "work_id": work_id, "mode": mode, "reasons": reasons,
     }
     if verdict != "deny":
-        _append_ledger(ledger, {**record, "decision": verdict})
+        _append_ledger(ledger, {**record, "decision": "held" if held else verdict})
         return 0
     if mode == "shadow":
         _append_ledger(ledger, {**record, "decision": "would_deny"})
         return 0
     denies = _prior_denies(ledger, payload.get("agent_id"))
     if denies >= FINISH_GATE_MAX_DENIES:
-        _append_ledger(ledger, {**record, "decision": "loop_guard_release"})
+        _append_ledger(ledger, {**record, "decision": "held" if held else "loop_guard_release"})
+        _OPERATOR_NOTICES.append(
+            f"FINISH GATE gave up after {FINISH_GATE_MAX_DENIES} denies and let {agent_type} hand "
+            f"back work order {work_id} unfinished: {'; '.join(reasons)}. Check it before relying on it."
+        )
         return 0
     _append_ledger(ledger, {**record, "decision": "deny"})
     sys.stderr.write(
@@ -824,10 +872,208 @@ def _open_work_orders(work_ids: list[str], final_message: str) -> list[str]:
     return problems
 
 
-def _stop_counter_path(payload: dict) -> str:
-    key = f"{payload.get('session_id')}:{payload.get('agent_id')}"
+def _stop_counter_path(payload: dict, gate: str) -> str:
+    # The gate name is part of the key, so each gate keeps its own cap even
+    # when two gates ever see the same session and agent.
+    key = f"{gate}:{payload.get('session_id')}:{payload.get('agent_id')}"
     digest = hashlib.sha256(key.encode("utf-8")).hexdigest()[:32]
     return os.path.join(tempfile.gettempdir(), "agency-workflow-kit-stop-gate", digest)
+
+
+def _subagent_transcript(payload: dict) -> str | None:
+    """A subagent's own transcript: a PreToolUse payload names the session's
+    transcript, and the subagent's sits at <stem>/subagents/agent-<id>.jsonl."""
+    transcript, agent_id = payload.get("transcript_path"), payload.get("agent_id")
+    if not isinstance(transcript, str) or not transcript.endswith(".jsonl"):
+        return None
+    if not isinstance(agent_id, str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,80}", agent_id):
+        return None
+    root = os.path.join(transcript[: -len(".jsonl")], "subagents")
+    name = f"agent-{agent_id}.jsonl"
+    path = os.path.join(root, name)
+    if os.path.isfile(path):
+        return path
+    return next((os.path.join(d, name) for d, _, files in os.walk(root) if name in files), None)
+
+
+def _project_root(cwd: str) -> str:
+    """The git top level of `cwd` (sanitized environment, as in _is_isolated),
+    or `cwd` itself when git cannot say."""
+    probe_env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
+    try:
+        probe = subprocess.run(
+            ["git", "rev-parse", "--show-toplevel"], cwd=cwd, capture_output=True,
+            text=True, timeout=GIT_PROBE_TIMEOUT_SECONDS, env=probe_env,
+        )
+        top = probe.stdout.strip()
+        if probe.returncode == 0 and top and "\n" not in top:
+            return top
+    except (OSError, ValueError, subprocess.SubprocessError):
+        pass
+    return cwd
+
+
+def _record_content(record: object) -> object:
+    """A transcript record's message content, or None when the record or its
+    message is not an object (a crash here would exit 1 and fail open)."""
+    message = record.get("message") if isinstance(record, dict) else None
+    return message.get("content") if isinstance(message, dict) else None
+
+
+def _made_file_edits(transcript_path: object, cwd: str) -> bool | None:
+    """Whether this transcript's own Edit/Write-family calls changed any file
+    other than <project root>/docs/LEARNINGS.md, with relative paths resolved
+    against `cwd`. None when the transcript cannot be read."""
+    if not isinstance(transcript_path, str) or not transcript_path:
+        return None
+    lessons_file = os.path.realpath(os.path.join(_project_root(cwd), LESSONS_FILE))
+    try:
+        with open(transcript_path, encoding="utf-8") as handle:
+            for line in handle:
+                if '"tool_use"' not in line:
+                    continue
+                try:
+                    record = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if not isinstance(record, dict) or record.get("type") != "assistant":
+                    continue
+                content = _record_content(record)
+                if not isinstance(content, list):
+                    continue
+                for item in content:
+                    if not (isinstance(item, dict) and item.get("type") == "tool_use"
+                            and item.get("name") in EDIT_TOOLS):
+                        continue
+                    tool_input = item.get("input") if isinstance(item.get("input"), dict) else {}
+                    path = str(tool_input.get("file_path") or tool_input.get("notebook_path") or "")
+                    if os.path.realpath(os.path.join(cwd, path)) != lessons_file:
+                        return True
+    except (OSError, ValueError, UnicodeDecodeError):
+        return None
+    return False
+
+
+def _missing_lesson_fields(final_message: str) -> list[str]:
+    """What the final message lacks of a lessons entry: its heading or any
+    labelled line. Bullets, bold and code fences around the entry are fine."""
+    text = final_message or ""
+    missing = [] if LESSON_HEADING.search(text) else ["`### L<n> ...` heading"]
+    for field in LESSON_FIELDS:
+        if not re.search(rf"(?m)^[ \t>*_-]*(?:\*\*)?{field}:(?:\*\*)?[ \t]*\S", text):
+            missing.append(f"`{field}:`")
+    return missing
+
+
+def _prior_handbacks(transcript_path: object, current_id: object) -> int:
+    """SubagentHandback calls in this transcript other than `current_id`."""
+    seen: set[str] = set()
+    if not isinstance(transcript_path, str) or not transcript_path:
+        return 0
+    try:
+        with open(transcript_path, encoding="utf-8") as handle:
+            for line in handle:
+                if HANDBACK_TOOL not in line:
+                    continue
+                try:
+                    record = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                content = _record_content(record)
+                for item in content if isinstance(content, list) else []:
+                    if (isinstance(item, dict) and item.get("type") == "tool_use"
+                            and item.get("name") == HANDBACK_TOOL and item.get("id") != current_id):
+                        seen.add(str(item.get("id")))
+    except (OSError, ValueError, UnicodeDecodeError):
+        return 0
+    return len(seen)
+
+
+def _block_with_cap(payload: dict, gate: str, problems: list[str], message: str,
+                    continuing: bool, fallback_blocks=None) -> int:
+    """Exit 2 with `message` while `problems` remain, at most MAX_STOP_BLOCKS
+    consecutive times per gate, session and agent. `continuing` says this attempt
+    follows a block, so the stored count applies. When the counter cannot be
+    written, `fallback_blocks()` (if given) supplies the count instead of
+    failing open."""
+    counter = _stop_counter_path(payload, gate)
+
+    def give_up() -> int:
+        _OPERATOR_NOTICES.append(
+            f"{GATE_LABELS.get(gate, gate)} gave up and let this through with problems left: "
+            f"{'; '.join(problems)}. Check it before relying on it."
+        )
+        return 0
+
+    blocks = 0
+    if continuing:
+        try:
+            with open(counter, encoding="utf-8") as handle:
+                blocks = int(handle.read().strip() or 0)
+        except (OSError, ValueError):
+            blocks = 0
+    if not problems or blocks >= MAX_STOP_BLOCKS:
+        try:
+            os.remove(counter)
+        except OSError:
+            pass
+        return give_up() if problems else 0
+    try:
+        os.makedirs(os.path.dirname(counter), exist_ok=True)
+        with open(counter, "w", encoding="utf-8") as handle:
+            handle.write(str(blocks + 1))
+    except OSError:
+        if fallback_blocks is not None:
+            if fallback_blocks() >= MAX_STOP_BLOCKS:
+                return give_up()
+        elif continuing:
+            return give_up()  # cannot count consecutive blocks; never risk an endless loop
+    sys.stderr.write(message)
+    return 2
+
+
+def _report_texts(report: str) -> list[str]:
+    """The report, then every string inside its specialist-result JSON, so an
+    entry kept in a JSON field (escaped newlines) is read line by line too.
+    Each is judged on its own: an entry is never assembled across fields."""
+    parts, stack = [report], [_specialist_result(report)]
+    while stack:
+        value = stack.pop()
+        if isinstance(value, str):
+            parts.append(value)
+        elif isinstance(value, dict):
+            stack.extend(value.values())
+        elif isinstance(value, list):
+            stack.extend(value)
+    return parts
+
+
+def _check_resolver_lesson(payload: dict) -> int:
+    """PreToolUse:SubagentHandback for agency-resolver: deny a report that
+    lacks the lessons entry once the Resolver has changed files."""
+    if payload.get("agent_type") != LESSON_AGENT:
+        return 0
+    tool_input = payload.get("tool_input")
+    report = tool_input.get("message") if isinstance(tool_input, dict) else None
+    cwd = payload.get("cwd")
+    if not isinstance(report, str) or not isinstance(cwd, str) or not cwd:
+        return 0
+    transcript = _subagent_transcript(payload)
+    if not _made_file_edits(transcript, cwd):
+        return 0
+    results = [_missing_lesson_fields(text) for text in _report_texts(report)]
+    # Name what the closest text lacks, so the Resolver fixes the right lines.
+    missing = min(results, key=len)
+    # Every handback after a deny is the next attempt, so the count always applies.
+    # Without a writable counter, earlier handback calls in the transcript count.
+    return _block_with_cap(payload, LESSONS_GATE, missing, (
+        "LESSONS GATE: you changed files but your report carries no complete "
+        f"{LESSONS_FILE} entry (missing: {', '.join(missing)}). Hand back again with the "
+        f"entry you appended to the `## Log` of {LESSONS_FILE}, or the entry you return when "
+        "that file is outside owned_paths: a `### L<n> · <YYYY-MM-DD> · <work_id> · <kind>` "
+        "heading, then `FAILURE:`, `ROOT CAUSE:`, `FIX:`, `LESSON:` and `TAGS:` lines.\n"
+    ), continuing=True,
+        fallback_blocks=lambda: _prior_handbacks(transcript, payload.get("tool_use_id")))
 
 
 def _check_stop(payload: dict) -> int:
@@ -848,41 +1094,43 @@ def _check_stop(payload: dict) -> int:
     if not isinstance(final_message, str):
         final_message = _last_assistant_text(transcript)
     problems = _open_work_orders(work_ids, final_message)
-
-    counter = _stop_counter_path(payload)
-    blocks = 0
-    if payload.get("stop_hook_active") is True:
-        try:
-            with open(counter, encoding="utf-8") as handle:
-                blocks = int(handle.read().strip() or 0)
-        except (OSError, ValueError):
-            blocks = 0
-    if not problems or blocks >= MAX_STOP_BLOCKS:
-        try:
-            os.remove(counter)
-        except OSError:
-            pass
-        return 0
-    try:
-        os.makedirs(os.path.dirname(counter), exist_ok=True)
-        with open(counter, "w", encoding="utf-8") as handle:
-            handle.write(str(blocks + 1))
-    except OSError:
-        if payload.get("stop_hook_active") is True:
-            return 0  # cannot count consecutive blocks; never risk an endless loop
     statuses = "|".join(WORK_ORDER_TERMINAL_STATUSES)
-    sys.stderr.write(
+    return _block_with_cap(payload, STOP_GATE, problems, (
         "WORK ORDER GATE: you delegated work orders that your final message does not "
         f"close ({'; '.join(problems)}). Finish the open work, or end your final message "
         f"with one line per work order: `studio-work-order-status: <work_id> <{statuses}>`, "
         f"{CLOSING_LINE_RULE}. "
         "Use DONE only when its acceptance criteria are met with evidence, BLOCKED with the "
         "blocker stated, OPERATOR_INPUT_REQUIRED with the exact decision needed.\n"
-    )
-    return 2
+    ), continuing=payload.get("stop_hook_active") is True)
+
+
+def _run_gate(gate, payload: dict, **kwargs) -> int:
+    """One handback gate; an unexpected error counts as allow for that gate
+    only, so the other gate's deny still holds the handback. The error is
+    written to stderr so a broken gate is visible."""
+    try:
+        return gate(payload, **kwargs)
+    except Exception as error:  # noqa: BLE001 - a gate bug must not fail the other gate open
+        try:
+            sys.stderr.write(f"GATE ERROR: {gate.__name__} failed and allowed this handback: "
+                             f"{type(error).__name__}: {error}\n")
+        except Exception:  # noqa: BLE001 - an unwritable stderr changes nothing
+            pass
+        return 0
 
 
 def main() -> int:
+    code = _dispatch()
+    if _OPERATOR_NOTICES:
+        try:
+            sys.stdout.write(json.dumps({"systemMessage": " ".join(_OPERATOR_NOTICES)}) + "\n")
+        except Exception:  # noqa: BLE001 - an unwritable stdout never changes the decision
+            pass
+    return code
+
+
+def _dispatch() -> int:
     try:
         payload = json.load(sys.stdin)
     except (json.JSONDecodeError, OSError):
@@ -899,7 +1147,16 @@ def main() -> int:
         sys.stderr.write(reason)
         return 2
     if payload.get("tool_name") == HANDBACK_TOOL:
-        return _finish_gate(payload)
+        # Both handback gates always run, so one deny carries every reason. The
+        # lessons gate goes first so the finish ledger records a held call as
+        # `held`, never `allow`.
+        lessons = _run_gate(_check_resolver_lesson, payload)
+        finish = _run_gate(_finish_gate, payload, held=lessons == 2)
+        if 2 in (lessons, finish):
+            # A gate that gave up let nothing through: the other gate held the call.
+            _OPERATOR_NOTICES.clear()
+            return 2
+        return 0
     if payload.get("tool_name") != GATED_TOOL:
         return 0
 
