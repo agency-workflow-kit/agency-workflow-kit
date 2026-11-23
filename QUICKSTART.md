@@ -1,6 +1,6 @@
 # Quick Start
 
-This guide is for Agency Workflow Kit `1.3.0-rc.4`, a public beta. In the commands below, `<project>` is the absolute path of the project you want to activate.
+This guide is for Agency Workflow Kit `1.3.0`, the stable release. In the commands below, `<project>` is the absolute path of the project you want to activate.
 
 ## 1. Requirements
 
@@ -16,7 +16,7 @@ This guide is for Agency Workflow Kit `1.3.0-rc.4`, a public beta. In the comman
 **As a Claude Code plugin (simplest).** Install once per machine, pinned to the release tag. The first command adds the Kit's marketplace at that tag, the second installs the plugin from it:
 
 ```bash
-claude plugin marketplace add agency-workflow-kit/agency-workflow-kit#v1.3.0-rc.4
+claude plugin marketplace add agency-workflow-kit/agency-workflow-kit#v1.3.0
 claude plugin install agency-workflow-kit@agency-workflow-kit
 ```
 
@@ -33,8 +33,8 @@ To remove the Kit from a project, ask for it in that project: `/agency-workflow-
 ```bash
 git clone https://github.com/agency-workflow-kit/agency-workflow-kit.git
 cd agency-workflow-kit
-git worktree add ../awk-1.3.0-rc.4 v1.3.0-rc.4
-cd ../awk-1.3.0-rc.4
+git worktree add ../awk-1.3.0 v1.3.0
+cd ../awk-1.3.0
 ```
 
 ## 3. What the Kit writes

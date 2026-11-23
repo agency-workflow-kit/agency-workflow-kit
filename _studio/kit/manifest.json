@@ -3,8 +3,8 @@
   "manifest_status": "candidate",
   "kit": {
     "name": "agency-workflow-kit",
-    "version": "1.3.0-rc.4",
-    "visibility": "public-beta",
+    "version": "1.3.0",
+    "visibility": "public",
     "runtime_target": "claude-code",
     "runtime_readiness": "implementation_freeze_ready"
   },
@@ -121,11 +121,12 @@
         "task_matrix": "complete",
         "circular_prerequisite_for_internal_cut": false,
         "post_canary_obligation": "continued-dogfood",
-        "completion_criterion": "all 12 task-matrix rows PASS on the 1.2.0 baseline with a fresh independent Critic, and 4/4 fleet projects ACTIVATED with KEEP on that baseline (Operator, 2026-10-25); dogfood after stable continues as practice, not as a release gate",
-        "record": "docs/release/certification/dogfood/stable-1.2.0-task-matrix/README.md",
+        "completion_criterion": "all 12 task-matrix rows PASS on the current baseline with a fresh independent Critic, and 4/4 fleet projects ACTIVATED on that baseline (Operator, 2026-10-25, re-run authorized on the 1.3.0 baseline 2026-11-23; exact release candidate pinned in the baseline field below and in the linked record); dogfood after stable continues as practice, not as a release gate",
+        "record": "docs/release/certification/dogfood/stable-1.3.0-task-matrix/README.md",
         "baseline": {
-          "kit_version": "1.2.0-rc.2",
-          "status": "complete"
+          "kit_version": "37869d60533d8433105173c249a05578fcd8fc9a",
+          "status": "complete",
+          "exact_candidate_note": "this field is the git commit SHA of the exact published candidate the task matrix ran on (public v1.3.0-rc.4, tag and public main commit 37869d60533d8433105173c249a05578fcd8fc9a), not a release-identity string, because that candidate predates this stable cut: now that manifest kit.version is 1.3.0, naming the bare major.minor.patch '1.3.0' here would read as dogfood having run on the stable release itself, which it did not. The baseline value is a 40-character commit SHA, which does not match G13's X.Y.Z[-label.N] release-identity pattern, so it needs no exemption. Separately, this manifest names the labelled identity 1.3.0-rc.4 (with and without the v prefix) both in this note and in its release-chronology notes; docs/release/public-export.json lists this manifest in release_history.files, and that listing exempts all of those mentions because 1.3.0-rc.4 is in release_history.releases. The exact label (tag v1.3.0-rc.4) and commit are also pinned in the linked record's Baseline table, which is not an exported file."
         }
       },
       "blocks_internal_when": [
@@ -145,20 +146,18 @@
         "Dogfood remains started_not_complete. runtime-discovery-evidence remains class C and open. Deferred gaps remain deferred. model-routing-evidence is not reopened. A/B scoped acceptance is unchanged in meaning.",
         "This does not authorize a tag, GitHub Release, or public/stable.",
         "2026-10-25: dogfood complete and runtime-discovery-evidence (class C) accepted for the supported surface on the 1.2.0 baseline (docs/release/certification/dogfood/stable-1.2.0-task-matrix/README.md). The notes above record the internal cut binding as it was. release_gate.status and public_stable stay blocked; tag_or_release_authorized stays false.",
-        "1.2.0 was published as the public stable release (tag v1.2.0, public main c879f85).",
-        "1.3.0-rc.1 was published as a public-beta prerelease (tag v1.3.0-rc.1, public main 0ef3357).",
-        "1.3.0-rc.2 was published as a public-beta prerelease (tag v1.3.0-rc.2 at f835007; public main bc9d461 after a documentation refresh).",
-        "1.3.0-rc.3 was published as a public-beta prerelease (tag v1.3.0-rc.3, public main 78fb1e0).",
-        "1.3.0-rc.4 is a public-beta prerelease candidate (visibility public-beta) cut from main bf4961d. The dogfood and class C fields above describe the 1.2.0 baseline; dogfood on the 1.3.0 baseline has not started. Its publication (public main, tag v1.3.0-rc.4, GitHub prerelease) needs a separate Operator authorization; certification does not publish."
+        "2026-11-23: dogfood and runtime-discovery-evidence (class C) re-run and re-accepted for the supported surface on the 1.3.0 baseline -- exact release candidate pinned in dogfood.baseline.exact_candidate_note and in the linked record (docs/release/certification/dogfood/stable-1.3.0-task-matrix/README.md) -- Operator decision to re-certify on 1.3.0 ahead of cutting stable rather than on the 1.2.0 baseline. The 1.2.0 record above stays as history. That re-run happened on the published 1.3.0-rc.4 candidate, before this stable cut existed; at that time this kit.version field and authorization_binding still described the then-current internal cut, not this stable cut.",
+        "1.3.0-rc.4 was published as a public-beta prerelease (tag v1.3.0-rc.4, public main and tag commit 37869d60533d8433105173c249a05578fcd8fc9a).",
+        "1.3.0 is the stable release candidate (visibility public), advanced from the published 1.3.0-rc.4. Its publication (public main, tag v1.3.0, GitHub Release marked Latest) needs a separate Operator authorization; certification does not publish."
       ],
       "authorization_binding": {
-        "kit_version": "1.3.0-rc.4",
-        "parent_commit": "bf4961d94d5ac47f3731226de9eeb7d60c30622d",
-        "provenance_record": "docs/release/certification/cut-1.3.0-rc.4-provenance.json",
-        "exact_release_hashes_record": "docs/release/certification/cut-1.3.0-rc.4-hashes.json",
-        "install_identity_record": "docs/release/certification/cut-1.3.0-rc.4-install-identity.json",
+        "kit_version": "1.3.0",
+        "parent_commit": "7883a98f201978037f5219738f2281e635f7c102",
+        "provenance_record": "docs/release/certification/cut-1.3.0-provenance.json",
+        "exact_release_hashes_record": "docs/release/certification/cut-1.3.0-hashes.json",
+        "install_identity_record": "docs/release/certification/cut-1.3.0-install-identity.json",
         "tree_oid_policy": "not_embedded",
-        "identity_blobs_field": "docs/release/certification/cut-1.3.0-rc.4-hashes.json#identity_blobs",
+        "identity_blobs_field": "docs/release/certification/cut-1.3.0-hashes.json#identity_blobs",
         "note": "authorized true only for kit_version + parent_commit + identity_blobs + tree_oid_policy not_embedded + provenance/hash/install-identity records. Land is valid only when HEAD^{tree} equals a fresh write-tree of this exact index; that OID is not stored inside the tree. release_gate.status and public_stable remain blocked; tag_or_release_authorized remains false."
       }
     },
@@ -264,12 +263,13 @@
           "docs/release/runtime-boundary.md",
           "docs/release/certification/runtime-live-20260923.md",
           "_studio/kit/fixtures/README.md",
-          "docs/release/certification/dogfood/stable-1.2.0-task-matrix/README.md"
+          "docs/release/certification/dogfood/stable-1.2.0-task-matrix/README.md",
+          "docs/release/certification/dogfood/stable-1.3.0-task-matrix/README.md"
         ],
         "scoped_acceptance": {
           "status": "accepted_for_supported_surface",
-          "critic_work_id": "critic-stable-1.2.0-task-matrix-classc",
-          "milestone_sha": "6241654301eb4e5296fe2d8382ee1c3fa9d31fa1",
+          "critic_work_id": "critic-stable-1.3.0-task-matrix-classc",
+          "milestone_sha": "bf4961d94d5ac47f3731226de9eeb7d60c30622d",
           "surface": "Claude Code only: install/activate/inspect/update/recovery lifecycle, activated-project Front Door, DIRECT/DELEGATE/DIRECTOR routing, real specialist delegation; docs/release/runtime-boundary.md non-claims unchanged"
         }
       },
@@ -280,7 +280,7 @@
         "evidence": [
           "_studio/kit/adapters/claude-code/README.md",
           "docs/release/checklist.md",
-          "docs/release/certification/cut-1.3.0-rc.4-provenance.json",
+          "docs/release/certification/cut-1.3.0-provenance.json",
           "docs/release/certification/runtime-live-20260923.md",
           "docs/release/certification/runtime-live-20260923.json"
         ],
@@ -293,7 +293,7 @@
         "evidence": [
           "_studio/kit/manifest.json",
           "docs/release/checklist.md",
-          "docs/release/certification/cut-1.3.0-rc.4-hashes.json"
+          "docs/release/certification/cut-1.3.0-hashes.json"
         ],
         "internal_cut_still_produces": true
       },

@@ -1,6 +1,70 @@
 # Release notes
 
+## 1.3.0: stable release
+
+This is the second stable release of Agency Workflow Kit. It follows the `1.2.0` stable release and carries everything from the four `1.3.0-rc.1`..`1.3.0-rc.4` public betas, now certified stable. The dogfood task matrix ran on the published `1.3.0-rc.4` candidate, whose runtime code is identical to this stable release (only the kit manifest and the public version files differ): 12/12 rows PASS, fleet 4/4 ACTIVATED.
+
+### New since 1.2.0
+
+- **Install as a Claude Code plugin.** `claude plugin marketplace add agency-workflow-kit/agency-workflow-kit#v1.3.0 && claude plugin install agency-workflow-kit@agency-workflow-kit` installs the Kit once per machine, pinned to the tag. Then `/agency-workflow-kit:activate` inside a project runs the preflight, activation and check for you, and stops at the first blocker. The [Quick Start](QUICKSTART.md#2-install-the-kit-source) covers update and removal for this route.
+- **Risk-tiered review.** A work order can carry `risk` (`low`, `medium` or `high`). The Director sets it by what a shipped defect would do to a user. For `high`, the Critic requires runtime or rendered proof and probes misuse, boundary and failure paths. Blocking Critic findings open with a kind label, such as `missing-validation:`, so the same class of defect can be fixed everywhere it occurs.
+- **Durable run evidence.** A governed `--execute-json` run records its terminal outcome and per-work-order release evidence in a durable run event log. The evidence survives removal of the linked worktree it ran in.
+- **Clearer errors and first run.** Activation and Front Door errors say what went wrong and what to do, instead of a traceback. Activation prints `ACTIVATED` and the next command on success, or the state that stopped it. It finds its Kit relative to its own location, so `--kit` is optional.
+- **Evidence for every acceptance criterion.** When a work order's acceptance criteria carry IDs, or the Critic reports per-criterion results, the work order is not DONE until the Critic records one evidenced pass for each criterion.
+- **Open work orders stop the Director from finishing.** A Director turn cannot end while a work order it delegated is still open.
+- **You are told when a gate gives up.** The finish check, the open-work-order check and the lessons check each stop blocking after three attempts, so a session is never stuck; each then shows a message naming the gate and the failing rule.
+- **Finish check for Coder and Resolver handbacks.** A Coder or Resolver handback is checked for a claim per criterion and a clean working tree. Activation adds `STUDIO_FINISH_GATE=enforce` to the project's `.claude/settings.json`, so a handback missing either is sent back. Set `STUDIO_FINISH_GATE=shadow` in `.claude/settings.local.json` to record without blocking.
+- **No reading of `.env` files.** Activation adds `permissions.deny` `Read` rules for `.env` and `.env.*` files. Your own permission entries are kept. This blocks only Claude Code's Read tool; it is not a sandbox, and a shell command can still read the file.
+- **Lessons file.** After each correction cycle the Resolver appends one entry to the project's `docs/LEARNINGS.md`: the failure, the root cause, the fix and the lesson. The Coder reads the file's Rules before editing, and the Critic reports a change that breaks a Rule.
+- **Tool state stays out of git.** Activation adds a `.abide/` line under a marker in the repository's `info/exclude`, unless git already ignores it; uninstall removes only that marked line.
+- **CI budget.** Kit-driven runs spend as few GitHub Actions minutes as possible: all local checks green before one push, pull requests open as drafts until local evidence is complete, no empty or retrigger commits, and a required check that never started (billing, quota, runner unavailable) is reported at the gate as an infrastructure block instead of being retried with another push. The helper is `.claude/runtime/studio_ci_budget.py`; `ciBudget` in `_studio/project.json` configures it; the activation check reports a CI-minute risk, report only; see [Quick Start: Saving CI minutes](QUICKSTART.md#saving-ci-minutes).
+- **CI templates.** A pull-request workflow and a pre-push hook, rendered for each project and applied only by a task run, as a pull request.
+
+### Fixed since 1.2.0
+
+- **`.env` rules survive a `cd`.** The first two `.env` deny rules were anchored only at the session's current directory, so they stopped covering the project's `.env` once a session moved into a subdirectory. Activation now also adds four more rules anchored at the project root, covering `.env` files at any depth (six rules total).
+- **Gated runs are checked before the Operator is asked.** A gated `director` run that cannot reach `DONE` once released — a missing worktree identity, no execute or verify phases declared, or an owned-path scope violation — is now rejected before the Operator is asked to authorize, instead of after.
+- **A verify-only workstream states why it is incomplete.** A workstream with verify phases but no execute phases is now recorded incomplete with a reason, like the other missing-phase shapes, instead of failing with no stated cause.
+- **An incomplete non-gated run ends `BLOCKED` with a stated cause.** A `delegate` or `director` run that cannot complete with its declared phases now ends `BLOCKED`, naming each incomplete work id and why at the top level, instead of `EXECUTING`/`admission_incomplete` with no blocker for the Director to report.
+
+### Updating from 1.2.0
+
+Plugin route: install the plugin as above, then run `/agency-workflow-kit:activate` in each project. Clone route: follow [Quick Start step 8](QUICKSTART.md#8-update) from a linked worktree of the new tag, user-global scope first, then each project. The project runtime gains exactly two modules (`studio_run_events.py`, added in `1.3.0-rc.1`; `studio_ci_budget.py`, added in `1.3.0-rc.4`) and two templates (added in `1.3.0-rc.4`) since `1.2.0`: 22 → 26 project files; until you update, `--check-only` reports the new runtime files as missing. Re-activation (not just update) is needed to write the new `.env` deny rules and `STUDIO_FINISH_GATE` setting into a project's settings; until then it reports as not `ACTIVATED`. Files you own are not changed.
+
+### Included
+
+- Five Kit agents: `agency-director`, `agency-researcher`, `agency-coder`, `agency-resolver`, `agency-critic`. Each pins its model and effort in its frontmatter.
+- Core skills, the Front Door entry rule, and the Front Door runtime that selects `DIRECT`, `DELEGATE` or `DIRECTOR`.
+- A worktree gate hook, plus worktree-isolation settings composed at project scope.
+- Commands to activate, inspect, preview, authorize, update, recover and uninstall, all journaled and fail-closed.
+
+### Supported runtime
+
+- Claude Code CLI `2.1.301`: formally qualified.
+- Claude Code CLI `2.1.302`: real-project dogfood evidence.
+- Claude Code CLI `2.1.308`, `2.1.309`, `2.1.310`: observed in release certification and real-project dogfood, not formally qualified.
+- Other newer patch versions: not formally qualified yet.
+- Python 3.12 or newer, with git, on macOS or Linux.
+
+### Known limitations
+
+- **Plugin route.** It does not use the preview, authorize and update records of Quick Start step 8, which need a clone. A pinned plugin cannot be re-pinned in place: remove the marketplace and install the new tag. Uninstalling the plugin does not remove the files activation wrote. A folder Claude Code has not seen before asks you to trust it first.
+- **`.env` protection is Read-only.** The `permissions.deny` rules block only Claude Code's Read tool; they are not a sandbox, and a shell command can still read a `.env` file.
+- **Claude Code only.** Cursor and Codex are not supported.
+- **Session location.** You must start Claude Code inside the activated project or worktree. A session started in another checkout does not load the Kit rule or hooks, and its native worktree isolation can root in the wrong clone.
+- **Verification coverage.** Real-project use was on macOS. Linux is covered only by the unit suite. Windows is not supported. The Claude Code Desktop app is not verified.
+- **No public test suite.** The test suite and certification evidence stay with the upstream development source. This repository contains the installable Kit only.
+- **No global uninstall command.** Per-project uninstall exists. Remove the user-global files by hand (see the Quick Start).
+- **Open follow-ups:** provider-neutral runtime and model routing; a revisit of the Critic model pin after future model releases; a kit-repo-only read-only command allowlist; capture of Critic startup failures in real use.
+- **Model access.** Pinned specialist models must be available to your Claude Code account.
+
+### Feedback
+
+Open an issue for bugs. Report security problems as described in [SECURITY.md](SECURITY.md).
+
 ## 1.3.0-rc.4: public beta
+
+Superseded by `1.3.0`. As published:
 
 This public beta follows `1.3.0-rc.3`. It adds a CI-minutes budget for governed pushes and closes three gaps where a gated or incomplete run reached the Operator, or ended, without a stated reason. `1.2.0` stays the stable release.
 
