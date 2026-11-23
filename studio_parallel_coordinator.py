@@ -330,7 +330,7 @@ class ParallelCoordinator:
             # or the earliest conflicting task_id when none yet grouped.
             serialization_group = self._serialization_group_for(conflicts)
 
-        identity = self._coerce_worktree(worktree) if worktree is not None else None
+        identity = self.coerce_worktree(worktree) if worktree is not None else None
         record = TaskRecord(
             task_id=task_id,
             owned_paths=normalized,
@@ -382,7 +382,7 @@ class ParallelCoordinator:
         forbidden_index_paths: Sequence[str] | None = None,
     ) -> dict[str, Any]:
         record = self._get(task_id)
-        identity = self._coerce_worktree(worktree)
+        identity = self.coerce_worktree(worktree)
         forbidden = {
             normalize_owned_path(p) if "/" in p or p.endswith("index") else p
             for p in (forbidden_index_paths or ())
@@ -811,7 +811,7 @@ class ParallelCoordinator:
         return str(conflicts[0]["task_id"])
 
     @staticmethod
-    def _coerce_worktree(worktree: WorktreeIdentity | Mapping[str, str]) -> WorktreeIdentity:
+    def coerce_worktree(worktree: WorktreeIdentity | Mapping[str, str]) -> WorktreeIdentity:
         if isinstance(worktree, WorktreeIdentity):
             return worktree
         try:

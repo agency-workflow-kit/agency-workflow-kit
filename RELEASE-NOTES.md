@@ -1,5 +1,30 @@
 # Release notes
 
+## 1.3.0-rc.4: public beta
+
+This public beta follows `1.3.0-rc.3`. It adds a CI-minutes budget for governed pushes and closes three gaps where a gated or incomplete run reached the Operator, or ended, without a stated reason. `1.2.0` stays the stable release.
+
+### New
+
+- **CI budget.** Kit-driven runs spend as few GitHub Actions minutes as possible: all local checks green before one push, pull requests open as drafts until local evidence is complete, no empty or retrigger commits, and a required check that never started (billing, quota, runner unavailable) is reported at the gate as an infrastructure block instead of being retried with another push. The helper is `.claude/runtime/studio_ci_budget.py`; see [Quick Start: Saving CI minutes](QUICKSTART.md#saving-ci-minutes).
+- **`ciBudget` in `_studio/project.json`** (optional): `mode` (`strict`, the default, or `normal`), `prBuildHost` and `requiredChecks`. Check commands stay in `commands`.
+- **CI-minute risk report** in the activation check. Report only.
+- **CI templates**: a pull-request workflow and a pre-push hook, rendered for each project and applied only by a task run, as a pull request.
+
+### Fixed
+
+- **Gated runs are checked before the Operator is asked.** A gated `director` run that cannot reach `DONE` once released — a missing worktree identity, no execute or verify phases declared, or an owned-path scope violation — is now rejected before the Operator is asked to authorize, instead of after.
+- **A verify-only workstream states why it is incomplete.** A workstream with verify phases but no execute phases is now recorded incomplete with a reason, like the other missing-phase shapes, instead of failing with no stated cause.
+- **An incomplete non-gated run ends `BLOCKED` with a stated cause.** A `delegate` or `director` run that cannot complete with its declared phases now ends `BLOCKED`, naming each incomplete work id and why at the top level, instead of `EXECUTING`/`admission_incomplete` with no blocker for the Director to report.
+
+### Updating from 1.3.0-rc.3
+
+Plugin route: `claude plugin marketplace remove agency-workflow-kit && claude plugin marketplace add agency-workflow-kit/agency-workflow-kit#v1.3.0-rc.4 && claude plugin install agency-workflow-kit@agency-workflow-kit`, then run `/agency-workflow-kit:activate` in each project. Clone route: follow [Quick Start step 8](QUICKSTART.md#8-update) from a linked worktree of the new tag, user-global scope first, then each project. The project runtime gains one module and two templates (26 project files, up from 23); until you update, `--check-only` reports the new runtime files as missing. The gated-run and incomplete-run fixes land in the existing Front Door runtime files; no settings change is needed for them.
+
+### Known limitations
+
+The `1.3.0-rc.1` limitations below still apply. `Read` rules do not stop a shell command from reading a `.env` file.
+
 ## 1.3.0-rc.3: public beta
 
 This public beta follows `1.3.0-rc.2`. It keeps the `.env` rules working after a session changes directory, turns the finish check on, and adds a lessons file that the Resolver writes and the other agents read. `1.2.0` stays the stable release.

@@ -8,8 +8,9 @@ it; uninstall leaves it in place; release packaging never ships a live copy.
 
 v1.2 field set (Operator decision on #114, reconciling the stale §8 example):
 identity, mode, stack descriptors, runtime, structured commands,
-environments and authority. Deliberately NOT here, because another surface
-already owns it -- this is not a second settings system:
+environments and authority, plus the optional ``ciBudget`` block (#223:
+how a Kit run spends CI minutes; the check commands stay in ``commands``).
+Deliberately NOT here, because another surface already owns it -- this is not a second settings system:
 
 - renderer profile: ``.studio/project-profile-extension.json``
   (studio_activation.resolve_render_profile);
@@ -31,6 +32,7 @@ import uuid
 from pathlib import Path
 from urllib.parse import urlsplit
 
+from studio_ci_budget import validate_ci_budget
 from studio_installer import _atomic_write
 
 SCHEMA_VERSION = 1
@@ -39,6 +41,9 @@ TOP_LEVEL_FIELDS = (
     "schemaVersion", "kitVersion", "projectId", "projectName", "mode",
     "profile", "runtime", "commands", "environments", "authority",
 )
+# Optional: absent means "use detected defaults". studio_ci_budget owns
+# the block's contract (validate_ci_budget).
+OPTIONAL_TOP_LEVEL_FIELDS = ("ciBudget",)
 MODES = ("new", "adopt")
 PROFILE_FIELDS = ("framework", "packageManager", "hosting", "database", "stage")
 RUNTIME_FIELDS = ("primary", "testedVersion")
@@ -60,14 +65,15 @@ class ProjectManifestError(RuntimeError):
     pass
 
 
-def _exact_keys(value, fields: tuple[str, ...], where: str, errors: list[str]) -> bool:
+def _exact_keys(value, fields: tuple[str, ...], where: str, errors: list[str],
+                optional: tuple[str, ...] = ()) -> bool:
     if not isinstance(value, dict):
         errors.append(f"{where} must be an object")
         return False
     for name in fields:
         if name not in value:
             errors.append(f"{where}.{name} is required")
-    for name in sorted(set(value) - set(fields)):
+    for name in sorted(set(value) - set(fields) - set(optional)):
         errors.append(f"{where}.{name} is not a v1.2 project manifest field")
     return True
 
@@ -124,7 +130,7 @@ def validate_project_manifest(data, *, project_root: Path | None = None, templat
     live project's identity.
     """
     errors: list[str] = []
-    if not _exact_keys(data, TOP_LEVEL_FIELDS, "project", errors):
+    if not _exact_keys(data, TOP_LEVEL_FIELDS, "project", errors, optional=OPTIONAL_TOP_LEVEL_FIELDS):
         return errors
 
     version = data.get("schemaVersion")
@@ -171,6 +177,9 @@ def validate_project_manifest(data, *, project_root: Path | None = None, templat
         for name in AUTHORITY_FIELDS:
             if authority.get(name) != AUTHORITY_HOLDER:
                 errors.append(f"project.authority.{name} must be {AUTHORITY_HOLDER!r} (profiles cannot weaken central authority)")
+
+    if "ciBudget" in data:
+        errors += validate_ci_budget(data["ciBudget"])
     return errors
 
 

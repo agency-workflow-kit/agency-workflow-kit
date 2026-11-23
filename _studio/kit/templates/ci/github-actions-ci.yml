@@ -1,0 +1,55 @@
+# Agency Workflow Kit: CI-minutes-safe pull request workflow (#223).
+# Render it for a project with:
+#   python3 .claude/runtime/studio_ci_budget.py --project . --render-templates <dir>
+# Rendering fills in the setup, install and check steps below from the
+# project's package manager and _studio/project.json commands. Apply it to
+# a project only through a normal Kit task run, as a pull request.
+#
+# - Runs on pull requests only. Branch pushes cost nothing.
+# - Draft pull requests skip the job. A skipped job reports success, so the
+#   required check is still reported; marking the PR ready runs it for real.
+# - A newer push cancels the run still going for the same pull request.
+# - A docs-only change (Markdown files and LICENSE) skips setup and checks
+#   but still reports the job.
+# - When a host such as Vercel already builds pull requests, the build step
+#   is left out.
+name: CI
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    # Self-hosted runner (uses no GitHub-hosted minutes). To use one, replace
+    # the line above with:
+    # runs-on: [self-hosted, linux]
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Detect a docs-only change
+        id: changes
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          # Fail closed: when the base cannot be resolved, run every check.
+          files=$(git diff --name-only "$BASE_SHA...$HEAD_SHA") || files="unresolved-base"
+          if grep -qvE '\.md$|^LICENSE$' <<< "$files"; then
+            echo "code=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "code=false" >> "$GITHUB_OUTPUT"
+            echo "Docs-only change: setup and checks skipped; the verify check still reports."
+          fi
+      # __KIT_STEPS__

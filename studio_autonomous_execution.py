@@ -961,8 +961,8 @@ class AutonomousExecutionTask:
                 )
             except ParallelCoordinatorError as exc:
                 raise AutonomousExecutionError(str(exc)) from exc
-            wt_key = delegation["work_ids"][0]
-            wt = worktrees.get(task_id) or worktrees.get(wt_key) or worktrees.get(str(index))
+            # Keyed by work_id only, as the contract documents; the gate check uses the same key.
+            wt = worktrees.get(delegation["work_ids"][0])
             if wt is not None:
                 coord.bind_worktree(task_id, wt)
             coord.set_status(task_id, STATUS_RUNNING)
@@ -1006,7 +1006,10 @@ class AutonomousExecutionTask:
         if not isolated:
             return str(self.worktree_cwd), None, None
         if not isinstance(worktree, Mapping):
-            return None, None, "worktree-isolated workstream has no worktree identity"
+            return None, None, (
+                "worktree-isolated workstream has no worktree identity "
+                f"(no worktrees entry for work_id {delegation['work_ids'][0]!r})"
+            )
         path = worktree.get("path")
         index = worktree.get("index_path")
         if not isinstance(path, str) or not Path(path).is_dir():
@@ -1084,7 +1087,8 @@ class AutonomousExecutionTask:
         bound_verify = [replace(phase, work_order_id=work_id) for phase in verify_phases]
         exec_result = engine.run_phases(bound_exec) if bound_exec else None
         verify_result = None
-        incomplete = not bound_exec and not bound_verify
+        # Without execute phases nothing ran, so there is nothing to judge: incomplete, not failed.
+        incomplete = not bound_exec
         passed = bool(exec_result is not None and exec_result.all_passed and not exec_result.unresolvable)
         if passed and bound_verify:
             verify_result = engine.run_phases(bound_verify, mark_verification=True)
@@ -1118,9 +1122,16 @@ class AutonomousExecutionTask:
             list(item["owned_paths"]),
             list(engine._relevant_artifact_paths),
         )
+        if incomplete:
+            missing = [name for name, phases in (("execute", bound_exec), ("verify", bound_verify)) if not phases]
+            evidence["incomplete_reason"] = f"no {' or '.join(missing)} phases declared"
         if violations:
+            # A change outside owned paths is a failure whatever phases were declared.
+            # incomplete_reason stays recorded so the blocker names both causes.
             passed = False
+            incomplete = False
             evidence["passed"] = False
+            evidence["incomplete"] = False
             evidence["scope_violations"] = violations
         item["workstream_evidence"] = evidence
         return {"evidence": evidence, "engine": engine, "passed": passed, "incomplete": incomplete}

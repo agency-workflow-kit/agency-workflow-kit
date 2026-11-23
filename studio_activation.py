@@ -71,6 +71,7 @@ if __name__ == "__main__" and sys.version_info < (3, 12):
     sys.exit(f"Agency Workflow Kit needs Python 3.12 or newer; {sys.executable} is "
              f"{sys.version.split()[0]}. Run this command with a newer python3.")
 
+from studio_ci_budget import CiBudgetError, ci_risks, resolve_config
 from studio_installer import InstallError, StudioInstaller, _is_rel_path_confined
 from studio_migration import WP_CAPABILITY_PATTERNS
 from studio_migration_apply import MigrationApplier
@@ -78,6 +79,7 @@ from studio_renderer import (
     ENTRY_RULE_RELATIVE,
     FRONT_DOOR_RUNTIME_MODULES,
     RUNTIME_MANIFEST_RELATIVE as RENDERER_RUNTIME_MANIFEST_RELATIVE,
+    RUNTIME_TEMPLATE_RELATIVES,
     RenderError,
     render_kit,
 )
@@ -103,7 +105,7 @@ GATE_HOOK_RELATIVE = Path("hooks") / "studio_worktree_gate.py"
 # exactly one file, so a single-path check there is already exhaustive.
 RUNTIME_MODULE_RELATIVES = tuple(
     Path("runtime") / f"{module_name}.py" for module_name in FRONT_DOOR_RUNTIME_MODULES
-)
+) + tuple(Path("runtime") / relative for relative in RUNTIME_TEMPLATE_RELATIVES)
 RUNTIME_MANIFEST_RELATIVE = Path("runtime") / RENDERER_RUNTIME_MANIFEST_RELATIVE
 
 # Renderer profile (render_kit(profile=...); not studio_workflow_profiles).
@@ -999,7 +1001,10 @@ def main() -> int:
                 print(f"activation error: {exc}", file=sys.stderr)
                 return 1
             result = check_activation_state(rendered_dir, args.project, global_root)
+        result["ci_budget"] = ci_budget_report(args.project)
         print(json.dumps(result, sort_keys=True))
+        for line in _ci_budget_summary(result["ci_budget"]):
+            print(line, file=sys.stderr)
         if result["state"] == "ACTIVATED":
             print(f"ACTIVATED: {args.project.resolve()}", file=sys.stderr)
         else:
@@ -1028,6 +1033,24 @@ def main() -> int:
         print(f"Not activated: state {state}{f': {reason}' if reason else ''}. The JSON above says what is missing.",
               file=sys.stderr)
     return 0 if state == "ACTIVATED" else 1
+
+
+def ci_budget_report(project_root: Path) -> dict:
+    """#223: the check path's CI-minute report. Reads the project's
+    workflows and config only; it never edits them and never changes the
+    activation state or exit code."""
+    try:
+        config = resolve_config(project_root)
+        return {"config": config, "risks": ci_risks(project_root, config)}
+    except (CiBudgetError, OSError) as exc:
+        return {"error": str(exc), "risks": []}
+
+
+def _ci_budget_summary(report: dict) -> list[str]:
+    if report.get("error"):
+        return [f"CI budget not checked: {report['error']}"]
+    lines = [f"CI-minute risk: {r['workflow']}: {r['risk']} ({r['detail']})" for r in report["risks"]]
+    return lines or ["CI-minute risks: none found"]
 
 
 def _settings_error_reason(error: str | None) -> str | None:

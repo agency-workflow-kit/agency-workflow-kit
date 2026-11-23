@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "studio://schemas/project.schema.json",
   "title": "Studio Project Manifest (_studio/project.json)",
-  "description": "v1.2 reconciled field set (#114). Renderer profile, execution limits, readiness, integrations and Linear bindings are owned elsewhere and are not fields here. Enforced by studio_project_manifest.validate_project_manifest.",
+  "description": "v1.2 reconciled field set (#114), plus the optional ciBudget block (#223). Renderer profile, execution limits, readiness, integrations and Linear bindings are owned elsewhere and are not fields here. Enforced by studio_project_manifest.validate_project_manifest.",
   "type": "object",
   "additionalProperties": false,
   "required": ["schemaVersion", "kitVersion", "projectId", "projectName", "mode", "profile", "runtime", "commands", "environments", "authority"],
@@ -73,6 +73,17 @@
         "localUrl": {"$ref": "#/$defs/url"},
         "previewUrl": {"$ref": "#/$defs/url"},
         "productionUrl": {"$ref": "#/$defs/url"}
+      }
+    },
+    "ciBudget": {
+      "description": "Optional (#223). How a Kit run spends CI minutes. Absent: studio_ci_budget detects defaults (mode strict). Local check commands live in commands.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "prBuildHost", "requiredChecks"],
+      "properties": {
+        "mode": {"enum": ["strict", "normal"]},
+        "prBuildHost": {"type": ["string", "null"], "pattern": "^[a-z0-9][a-z0-9-]{0,62}$"},
+        "requiredChecks": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}}
       }
     },
     "authority": {

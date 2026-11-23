@@ -62,7 +62,9 @@ ENTRY_RULE_RELATIVE = Path("rules") / "agency-workflow-kit.md"
 # with the two modules that carry no further local imports. Keep this
 # minimal: every one of the other 29+ studio_* modules in this repo is
 # deliberately excluded, and a new module must only be added here if the
-# transitive-import closure of studio_front_door.py actually grows.
+# transitive-import closure of studio_front_door.py actually grows -- or,
+# like studio_ci_budget (#223), it is a standalone CLI the activated
+# project's own session runs (the entry rule's CI-budget procedure).
 FRONT_DOOR_RUNTIME_MODULES = (
     "studio_front_door",
     "studio_planning_onramp",
@@ -84,6 +86,7 @@ FRONT_DOOR_RUNTIME_MODULES = (
     "studio_work_order_plan",
     "studio_director_mcp_grants",
     "studio_run_events",
+    "studio_ci_budget",
 )
 
 # studio_capability_router.DEFAULT_MANIFEST_PATH resolves to
@@ -91,6 +94,12 @@ FRONT_DOOR_RUNTIME_MODULES = (
 # therefore carry the manifest at that exact relative location for the
 # packaged CapabilityRouter to find it without any code change.
 RUNTIME_MANIFEST_RELATIVE = Path("_studio") / "kit" / "manifest.json"
+
+# studio_ci_budget.TEMPLATE_DIR resolves to "<module dir>/_studio/kit/
+# templates/ci", so the runtime carries its templates at that same path.
+RUNTIME_TEMPLATE_RELATIVES = tuple(
+    Path("_studio") / "kit" / "templates" / "ci" / name for name in ("github-actions-ci.yml", "pre-push")
+)
 
 # The renderer's own sibling directory -- studio_renderer.py already lives
 # beside every other module in FRONT_DOOR_RUNTIME_MODULES, so this is the
@@ -246,6 +255,15 @@ def render_kit(
             raise RenderError(f"missing front door runtime module: {module_source}")
         (output_dir / "runtime" / f"{module_name}.py").write_text(
             module_source.read_text(encoding="utf-8"), encoding="utf-8", newline="\n"
+        )
+
+    for relative in RUNTIME_TEMPLATE_RELATIVES:
+        template_source = kit_dir / relative.relative_to(Path("_studio") / "kit")
+        if not template_source.is_file():
+            raise RenderError(f"missing runtime template: {template_source}")
+        (output_dir / "runtime" / relative).parent.mkdir(parents=True, exist_ok=True)
+        (output_dir / "runtime" / relative).write_text(
+            template_source.read_text(encoding="utf-8"), encoding="utf-8", newline="\n"
         )
 
     runtime_manifest_source = kit_dir / "manifest.json"

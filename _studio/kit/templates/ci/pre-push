@@ -1,0 +1,9 @@
+#!/bin/sh
+# Agency Workflow Kit pre-push hook (#223): run the project's local checks
+# before every push, so a red change never reaches CI. Rendered by
+#   python3 .claude/runtime/studio_ci_budget.py --project . --render-templates <dir>
+# from _studio/project.json commands (or package.json scripts). A failing
+# check exits non-zero and git refuses the push.
+set -e
+cd "$(git rev-parse --show-toplevel)"
+# __KIT_CHECKS__

@@ -1,6 +1,6 @@
 # Quick Start
 
-This guide is for Agency Workflow Kit `1.3.0-rc.3`, a public beta. In the commands below, `<project>` is the absolute path of the project you want to activate.
+This guide is for Agency Workflow Kit `1.3.0-rc.4`, a public beta. In the commands below, `<project>` is the absolute path of the project you want to activate.
 
 ## 1. Requirements
 
@@ -16,7 +16,7 @@ This guide is for Agency Workflow Kit `1.3.0-rc.3`, a public beta. In the comman
 **As a Claude Code plugin (simplest).** Install once per machine, pinned to the release tag. The first command adds the Kit's marketplace at that tag, the second installs the plugin from it:
 
 ```bash
-claude plugin marketplace add agency-workflow-kit/agency-workflow-kit#v1.3.0-rc.3
+claude plugin marketplace add agency-workflow-kit/agency-workflow-kit#v1.3.0-rc.4
 claude plugin install agency-workflow-kit@agency-workflow-kit
 ```
 
@@ -33,8 +33,8 @@ To remove the Kit from a project, ask for it in that project: `/agency-workflow-
 ```bash
 git clone https://github.com/agency-workflow-kit/agency-workflow-kit.git
 cd agency-workflow-kit
-git worktree add ../awk-1.3.0-rc.3 v1.3.0-rc.3
-cd ../awk-1.3.0-rc.3
+git worktree add ../awk-1.3.0-rc.4 v1.3.0-rc.4
+cd ../awk-1.3.0-rc.4
 ```
 
 ## 3. What the Kit writes
@@ -93,6 +93,35 @@ In the activated session, ask for a small, real, bounded task, for example:
 > Fix the security advisory in dependency X. Change only package.json and the lockfile, run the build and tests, and have the result independently reviewed.
 
 The session is the Front Door. It does a clear task directly. To delegate, it writes a small decomposition and runs the installed router `.claude/runtime/studio_front_door.py`, which picks `DIRECT`, `DELEGATE` or `DIRECTOR`. For acceptance, a fresh `agency-critic` reviews the exact revision. You decide when to merge or deploy.
+
+### Saving CI minutes
+
+GitHub Actions minutes are spent only after local evidence is green. In an activated project every push goes through `.claude/runtime/studio_ci_budget.py`; the Kit's entry rule tells the session how:
+
+- `--local-checks` runs lint, typecheck, test and build: `_studio/project.json` `commands`, or package.json scripts where a command is not set.
+- `--ship --base main --title <title> --body-file <file>` refuses uncommitted changes, empty commits and an already-pushed HEAD, reruns the checks, pushes once and opens the pull request as a draft.
+- `--ready --evidence <ship output>` marks it ready only for passing evidence of the pushed HEAD.
+- `--classify-checks` reads `gh pr checks`, waiting up to `--wait-seconds` (default 300) for the required checks to appear. A required check that never started, or failed with no run behind it (billing, spending limit, quota, no runner), is an `infrastructure_block`: the session stops pushing and reports it at the gate with the local evidence.
+
+Optional settings in `_studio/project.json`:
+
+```json
+"ciBudget": {
+  "mode": "strict",
+  "prBuildHost": "vercel",
+  "requiredChecks": ["verify"]
+}
+```
+
+- `mode`: `strict` (the default) needs all four check commands; `normal` runs the ones that exist and reports the rest.
+- `prBuildHost`: the host that already builds pull requests. The CI template leaves the build to it, and the check flags a workflow that builds again.
+- `requiredChecks`: the check names a pull request needs. A missing one counts as never started.
+
+Without the block the helper detects defaults: mode `strict`, the host from `vercel.json`, `.vercel/project.json` or `netlify.toml`, and required checks from the pull-request workflows. It holds names only, never secrets. `python3 .claude/runtime/studio_ci_budget.py --project . --config` prints the values in effect.
+
+Checking the project (`/agency-workflow-kit:activate` asked to check, or `--check-only`) lists CI-minute risks: push triggers on feature branches, no concurrency cancel, no draft skip, no dependency cache, and a build the PR host already does. It never edits a workflow.
+
+To adopt the CI templates, ask for a normal task, for example "apply the Kit's CI-minutes templates as a PR". The task runs `python3 .claude/runtime/studio_ci_budget.py --project . --render-templates .`, which writes `.github/workflows/ci.yml` (pull_request opened, synchronize, reopened and ready_for_review; draft skip; concurrency cancel; a docs-only skip that still reports the `verify` check; package-manager cache; a commented self-hosted runner) and a pre-push hook (`.husky/pre-push`, `scripts/pre-push.sh` for simple-git-hooks, or `.githooks/pre-push`). It supports npm, pnpm and yarn and never overwrites a file: an existing workflow is replaced or merged on purpose in that task. Activation never applies the templates. If branch protection requires an older check name, change it to `verify` after the merge.
 
 ## 7. Permissions and safety model
 

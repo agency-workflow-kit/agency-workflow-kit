@@ -377,6 +377,83 @@ def _release_authorized_gate(task, *, execute_phases, verify_phases):
     return task.join_required_work()
 
 
+def _gate_readiness_issues(task, work_id, execute_phases, verify_phases) -> list[str]:
+    """What already guarantees this gated work cannot reach DONE once released.
+
+    These are the checks _run_one_admitted applies after release, run before
+    the Operator is asked: declared phases, worktree identity, owned-path scope.
+    """
+    from dataclasses import asdict
+
+    from studio_autonomous_execution import (
+        normalize_dispatch_owned_paths,
+        owned_paths_for_delegation,
+        workstream_scope_violations,
+    )
+    from studio_factory_run import PHASE_KIND_CODE
+    from studio_parallel_coordinator import ParallelCoordinator, ParallelCoordinatorError
+
+    issues = []
+    if not execute_phases:
+        issues.append("no execute phases declared")
+    if not verify_phases:
+        issues.append("no verify phases declared")
+    delegation = next(
+        (
+            item for item in (task.entry_route or {}).get("delegations") or []
+            if work_id in (item.get("work_ids") or [])
+        ),
+        None,
+    )
+    if delegation is None:
+        return issues
+    narrowed = {**delegation, "work_ids": [work_id]}
+    snapshot = {}
+    worktree = (getattr(task, "_dispatch_worktrees", None) or {}).get(work_id)
+    if worktree is not None:
+        try:
+            snapshot = {"worktree": asdict(ParallelCoordinator.coerce_worktree(worktree))}
+        except ParallelCoordinatorError as exc:
+            return [*issues, str(exc)]
+    cwd, _identity, worktree_error = task._require_execution_cwd({"delegation": narrowed}, snapshot)
+    if worktree_error:
+        return [*issues, worktree_error]
+    # CODE phases declare their artifacts up front. An agent's claimed artifacts
+    # are unknown until it runs, so scope is left to the post-run check there.
+    phases = [*execute_phases, *verify_phases]
+    if all(getattr(phase, "phase_kind", None) == PHASE_KIND_CODE for phase in phases):
+        violations = workstream_scope_violations(
+            cwd,
+            list(normalize_dispatch_owned_paths(owned_paths_for_delegation(narrowed, task.frozen_work_order))),
+            [str(path) for phase in phases for path in (phase.artifact_paths or ())],
+        )
+        if violations:
+            issues.append(f"scope_violations={_bounded_list(violations)}")
+    return issues
+
+
+def _block_unready_gate(task, join, work_id, execute_phases, verify_phases):
+    """BLOCKED, not GATED, when release cannot reach DONE. None when the gate is ready."""
+    from studio_autonomous_execution import UNRESOLVABLE_BLOCKER
+
+    issues = _gate_readiness_issues(task, work_id, execute_phases, verify_phases)
+    if not issues:
+        return None
+    task.prepared_gate_action = None
+    task.interrupt(
+        interruption_class=UNRESOLVABLE_BLOCKER,
+        # The work id sits in the detail so it is scanned and bounded with the causes.
+        reason=_bounded_reason(
+            "gated work cannot reach DONE once released", f"{work_id}: " + "; ".join(issues),
+        ),
+        required_decision_or_action=(
+            "fix the payload or worktree and re-run before asking the Operator to authorize"
+        ),
+    )
+    task.finish_delegations(passed=False)
+    return _admitted_payload(task, join, error="gate_not_ready")
+
+
 def _complete_admitted_entry(
     task,
     *,
@@ -409,6 +486,9 @@ def _complete_admitted_entry(
             entry for entry in task.frozen_work_order or []
             if entry.get("operator_gate_required")
         )
+        unready = _block_unready_gate(task, join, gated["work_id"], execute_phases, verify_phases)
+        if unready is not None:
+            return unready
         if task.prepared_gate_action is None:
             task.prepare_operator_gate(
                 gate_kind="operator_gate_required",
@@ -452,6 +532,16 @@ def _complete_admitted_entry(
             for row in ((task.entry_route or {}).get("admission") or {}).get("results") or []
         )
         if still_gated and join.get("verdict") != JOIN_JOINED:
+            upcoming = next(
+                (entry for entry in task.frozen_work_order or [] if entry.get("operator_gate_required")),
+                None,
+            )
+            if upcoming is not None:
+                unready = _block_unready_gate(
+                    task, join, upcoming["work_id"], execute_phases, verify_phases,
+                )
+                if unready is not None:
+                    return unready
             _prepare_next_operator_gate(task)
             task.interrupt(
                 interruption_class=MANDATORY_OPERATOR_GATE,
@@ -474,6 +564,25 @@ def _complete_admitted_entry(
                 ),
             )
             return _admitted_payload(task, join, error="execution_halted")
+        # Work-order order, not completion order, so the reason is stable across runs.
+        order = {entry["work_id"]: index for index, entry in enumerate(task.frozen_work_order or [])}
+        incomplete = sorted(
+            (item for item in task.workstream_evidence() if item.get("incomplete")),
+            key=lambda item: order.get(item["work_id"], len(order)),
+        )
+        if incomplete:
+            # Missing phase lists cannot change within this run: report them, do not wait.
+            task.interrupt(
+                interruption_class=UNRESOLVABLE_BLOCKER,
+                reason=_bounded_reason(
+                    _INCOMPLETE_WORK_REASON,
+                    "; ".join(f"{item['work_id']}: {item['incomplete_reason']}" for item in incomplete),
+                ),
+                required_decision_or_action=(
+                    "declare at least one execute phase and one verify phase and re-run"
+                ),
+            )
+            return _admitted_payload(task, join, error="phases_incomplete")
         return _admitted_payload(task, join, error="admission_incomplete")
 
     try:
@@ -522,6 +631,7 @@ def _completion_error(exc: BaseException) -> str:
 
 
 _FAILED_WORK_REASON = "required work failed, was refused, or did not complete"
+_INCOMPLETE_WORK_REASON = "required work cannot complete with the declared phases"
 _FAILED_WORK_LIST_MAX = 5
 
 
@@ -530,6 +640,16 @@ def _bounded_list(items: Sequence[str]) -> str:
     if len(items) > _FAILED_WORK_LIST_MAX:
         shown.append(f"+{len(items) - _FAILED_WORK_LIST_MAX} more")
     return "[" + ", ".join(shown) + "]"
+
+
+def _bounded_reason(prefix: str, detail: str) -> str:
+    """A blocker reason with its cause detail, bounded; the detail is withheld if it looks secret-bearing."""
+    if _SECRET_SHAPED.search(detail):
+        return f"{prefix}: cause detail withheld (secret-shaped content)"
+    reason = f"{prefix}: {detail}"
+    if len(reason) > _COMPLETION_ERROR_MAX_CHARS:
+        reason = reason[: _COMPLETION_ERROR_MAX_CHARS - 3] + "..."
+    return reason
 
 
 def _failed_work_reason(task, join) -> str:
@@ -541,8 +661,12 @@ def _failed_work_reason(task, join) -> str:
     for work_id in join.get("failed") or []:
         item = evidence.get(work_id) or {}
         parts = []
+        if item.get("worktree_error"):
+            parts.append(f"worktree_error={item['worktree_error']}")
         if item.get("scope_violations"):
             parts.append(f"scope_violations={_bounded_list(item['scope_violations'])}")
+        if item.get("incomplete_reason"):
+            parts.append(f"incomplete_reason={item['incomplete_reason']}")
         # Last envelope per phase wins, so a repaired phase is not reported as failed.
         last_status: dict[str, Any] = {}
         for key in ("factory_run", "verification"):
@@ -556,13 +680,7 @@ def _failed_work_reason(task, join) -> str:
             details.append(f"{work_id}: " + " ".join(parts))
     if not details:
         return _FAILED_WORK_REASON
-    detail = "; ".join(details)
-    if _SECRET_SHAPED.search(detail):
-        return f"{_FAILED_WORK_REASON}: cause detail withheld (secret-shaped content)"
-    reason = f"{_FAILED_WORK_REASON}: {detail}"
-    if len(reason) > _COMPLETION_ERROR_MAX_CHARS:
-        reason = reason[: _COMPLETION_ERROR_MAX_CHARS - 3] + "..."
-    return reason
+    return _bounded_reason(_FAILED_WORK_REASON, "; ".join(details))
 
 
 def _admitted_payload(task, join, error=None, completion_error=None) -> dict:
